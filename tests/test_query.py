@@ -167,6 +167,44 @@ def test_coverage_gaps(c):
     assert "T1566.002" not in out["summary"]["no_mitigation"]
 
 
+def test_coverage_gaps_counts_come_from_the_totals(c, monkeypatch):
+    original = c.countermeasures
+
+    def truncated(*args, **kwargs):
+        out = original(*args, **kwargs)
+        return {**out, "countermeasures": out["countermeasures"][:1]}
+
+    monkeypatch.setattr(c, "countermeasures", truncated)
+    entry = c.coverage_gaps(["T1539"])["techniques"][0]
+    assert (entry["d3fend_official"], entry["d3fend_derived"]) == (2, 0)
+    entry = c.coverage_gaps(["T1566"])["techniques"][0]
+    assert (entry["d3fend_official"], entry["d3fend_derived"]) == (0, 1)
+
+
+def test_coverage_gaps_carry_the_gap_reason(c):
+    out = c.coverage_gaps(["T1539", "T1566", "T1684", "T0001", "F1005.006"])
+    by_id = {t["id"]: t for t in out["techniques"]}
+    assert "d3fend_gap_reason" not in by_id["T1539"] and "d3fend_gap_reason" not in by_id["T1566"]
+    assert {i: by_id[i]["d3fend_gap_reason"] for i in ("T1684", "T0001", "F1005.006")} == {
+        "T1684": "predates", "T0001": "no_mapping", "F1005.006": "f3_native"}
+    assert any("predates" in n for n in by_id["T1684"]["d3fend_notes"])
+    assert out["summary"]["no_official_d3fend"] == ["T1566", "T1684", "T0001", "F1005.006"]
+    assert out["summary"]["d3fend_predates"] == ["T1684"]
+    assert "d3fend_unavailable" not in out["summary"]
+
+
+def test_coverage_gaps_when_mappings_unavailable(c_no_mappings):
+    out = c_no_mappings.coverage_gaps(["T1539", "T1684", "F1005.006"])
+    assert out["d3fend_mappings"] == "unavailable"
+    for entry in out["techniques"]:
+        assert entry["d3fend_official"] is None and entry["d3fend_derived"] is None
+        assert entry["d3fend_gap_reason"] == "unavailable"
+        assert any("unavailable, not empty" in n for n in entry["d3fend_notes"])
+    assert out["summary"]["d3fend_unavailable"] == ["T1539", "T1684", "F1005.006"]
+    assert "no_official_d3fend" not in out["summary"] and "d3fend_predates" not in out["summary"]
+    assert out["summary"]["no_mitigation"] == ["T1539", "T1684", "F1005.006"]  # the rest is unaffected
+
+
 def test_datasets(c):
     data = c.datasets()
     assert data["active_object_counts"]["attack"]["technique"] == 6  # 5 Enterprise + 1 ICS

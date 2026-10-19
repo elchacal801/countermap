@@ -748,9 +748,15 @@ class Countermap:
                 "mitigations": len(self._active([e["src"] for e in self._edges(dst=node_id, rel="mitigates")])),
                 "detection_strategies": len(self._active([e["src"] for e in self._edges(dst=node_id, rel="detects")])),
             }
-            cm = self.countermeasures(node_id, limit=200)
-            entry["d3fend_official"] = sum(1 for c in cm["countermeasures"] if c["provenance"] == "official")
-            entry["d3fend_derived"] = sum(1 for c in cm["countermeasures"] if c["provenance"] == "derived")
+            # The totals, not the (capped) list. Unavailable D3FEND data is not a count of zero.
+            cm = self.countermeasures(node_id, limit=1)
+            unavailable = cm["gap_reason"] == "unavailable"
+            entry["d3fend_official"] = None if unavailable else cm["official"]
+            entry["d3fend_derived"] = None if unavailable else cm["derived"]
+            if cm["gap_reason"]:
+                entry["d3fend_gap_reason"] = cm["gap_reason"]
+            if cm["notes"]:
+                entry["d3fend_notes"] = cm["notes"]
             if warnings:
                 entry["warnings"] = warnings
             rows.append(entry)
@@ -758,8 +764,12 @@ class Countermap:
                 summary["no_mitigation"].append(entry["id"])
             if entry["detection_strategies"] == 0 and n["framework"] == "attack":
                 summary["no_detection_strategy"].append(entry["id"])
-            if entry["d3fend_official"] == 0:
+            if unavailable:
+                summary["d3fend_unavailable"].append(entry["id"])
+            elif entry["d3fend_official"] == 0:
                 summary["no_official_d3fend"].append(entry["id"])
+            if cm["gap_reason"] == "predates":
+                summary["d3fend_predates"].append(entry["id"])
         if len(refs) > MAX_LIST_ITEMS:
             summary["truncated"] = [f"checked the first {MAX_LIST_ITEMS} of {len(refs)} techniques"]
         return {
