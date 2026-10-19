@@ -22,6 +22,17 @@ class BuildError(RuntimeError):
     pass
 
 
+class RequiredSourceError(BuildError):
+    """A required source could not be fetched or ingested (``build(allow_partial=True)`` builds without it)."""
+
+    def __init__(self, key: str, message: str):
+        super().__init__(message)
+        self.key = key
+
+
+PARTIAL = "required; built without it because of --allow-partial"
+
+
 def _now() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
 
@@ -37,12 +48,15 @@ def build(
     *,
     verify_hashes: bool = False,
     keep_previous: bool = True,
+    allow_partial: bool = False,
     log=print,
 ) -> dict:
     """Build the database from ``sources`` into a temporary file, then swap it in.
 
-    A required source that cannot be fetched or ingested raises BuildError; the temporary file is removed and
-    the existing database is left as it was. An optional source that fails is recorded and skipped.
+    A required source that cannot be fetched or ingested raises RequiredSourceError; the temporary file is
+    removed and the existing database is left as it was. With ``allow_partial`` the build records it instead and
+    marks the database degraded. An optional source that fails is recorded and skipped. A SHA-256 mismatch
+    against a lock always fails.
     """
     db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -50,13 +64,23 @@ def build(
     writer = GraphWriter(tmp_path)
     report: dict = {"started_at": _now(), "countermap_version": __version__, "sources": []}
     try:
-        _load(writer, sources, cache_dir, report, verify_hashes=verify_hashes, log=log)
+        _load(writer, sources, cache_dir, report, verify_hashes=verify_hashes, allow_partial=allow_partial, log=log)
+        optional = {s.key: s.optional for s in sources}
+        missing = [{"key": key, "status": s["status"], "required": not optional[key], "note": s.get("note")}
+                   for key, s in writer.sources.items() if s["status"] != "loaded"]
+        degraded = any(m["required"] for m in missing)
+        if degraded:
+            writer.warnings.append("degraded build (--allow-partial): required sources not loaded: " + ", ".join(
+                f"{m['key']} ({m['status']})" for m in missing if m["required"]))
+        report.update(degraded=degraded, missing_sources=missing)
         report["attack_cross_bundle_links"] = resolve_cross_bundle_references(writer)
         report["cross_checks"] = _cross_check(writer)
         report["finished_at"] = _now()
         writer.commit({
             "build_report": report,
             "built_at": report["finished_at"],
+            "degraded": degraded,
+            "missing_sources": missing,
             "d3fend_properties": getattr(writer, "d3fend_properties", {}),
             "d3fend_known_offensive_ids": getattr(writer, "d3fend_known_offensive_ids", []),
         })
@@ -72,12 +96,22 @@ def build(
 
 
 def _load(writer: GraphWriter, sources: list[ResolvedSource], cache_dir: Path, report: dict, *,
-          verify_hashes: bool, log) -> None:
+          verify_hashes: bool, allow_partial: bool, log) -> None:
     """Fetch, verify and ingest each source in ORDER into ``writer``, recording each one's status."""
     by_key = {s.key: s for s in sources}
     for key in ORDER:
         src = by_key.get(key)
         if src is None:
+            continue
+        if key == "d3fend-mappings" and not hasattr(writer, "d3fend_iri_to_id"):
+            # The mappings name D3FEND techniques by ontology class, so they cannot be read without it.
+            writer.add_source(
+                key, framework=src.framework, title=src.title, version=src.version, url=src.url,
+                license=src.license, retrieved_at=_now(), status="unavailable",
+                note="skipped: the D3FEND ontology was not loaded",
+            )
+            writer.warnings.append("d3fend-mappings skipped: the D3FEND ontology was not loaded")
+            log(f"  ! {key}: skipped, the D3FEND ontology was not loaded ({'optional' if src.optional else PARTIAL})")
             continue
         path = None
         errors = [] if src.url else ["no URL could be resolved (unknown upstream release version)"]
@@ -96,9 +130,10 @@ def _load(writer: GraphWriter, sources: list[ResolvedSource], cache_dir: Path, r
                 license=src.license, retrieved_at=_now(), status="unavailable", note=note,
             )
             writer.warnings.append(f"{key} unavailable: {note}")
-            log(f"  ! {key}: unavailable ({'optional' if src.optional else 'required'})")
-            if not src.optional:
-                raise BuildError(f"required source {key} could not be fetched: {note}")
+            if not src.optional and not allow_partial:
+                log(f"  ! {key}: unavailable (required)")
+                raise RequiredSourceError(key, f"required source {key} could not be fetched: {note}")
+            log(f"  ! {key}: unavailable ({'optional' if src.optional else PARTIAL})")
             continue
 
         digest = sha256_file(path)
@@ -109,9 +144,6 @@ def _load(writer: GraphWriter, sources: list[ResolvedSource], cache_dir: Path, r
             )
 
         log(f"  - ingesting {key} from {used_url}")
-        if key == "d3fend-mappings" and not hasattr(writer, "d3fend_iri_to_id"):
-            writer.warnings.append("d3fend-mappings skipped: the D3FEND ontology was not loaded")
-            continue
         ingest = {
             "f3": ingest_f3, "atlas": ingest_atlas,
             "d3fend-ontology": ingest_d3fend_ontology, "d3fend-mappings": ingest_d3fend_mappings,
@@ -120,14 +152,17 @@ def _load(writer: GraphWriter, sources: list[ResolvedSource], cache_dir: Path, r
             result = ingest(writer, path, key)
         except Exception as exc:  # noqa: BLE001 - any parser error on upstream data (BadSyntax, YAMLError, ...)
             reason = str(exc) if isinstance(exc, (ValueError, KeyError, TypeError)) else f"{type(exc).__name__}: {exc}"
-            if not src.optional:
-                raise BuildError(f"{key}: could not ingest {used_url}: {reason}") from exc
+            if not src.optional and not allow_partial:
+                raise RequiredSourceError(key, f"{key}: could not ingest {used_url}: {reason}") from exc
+            # Drop whatever the parser stored before it failed, so a failed source contributes nothing.
+            writer.nodes = {k: n for k, n in writer.nodes.items() if n["source"] != key}
+            writer.edges = {k: e for k, e in writer.edges.items() if e["source"] != key}
             writer.add_source(
                 key, framework=src.framework, title=src.title, version=src.version, url=used_url,
                 sha256=digest, license=src.license, retrieved_at=_now(), status="failed", note=reason,
             )
             writer.warnings.append(f"{key} failed to ingest and was skipped: {reason}")
-            log(f"  ! {key}: failed to ingest ({reason})")
+            log(f"  ! {key}: failed to ingest ({'optional' if src.optional else PARTIAL}): {reason}")
             continue
         version = result.get("version") or src.version
         writer.add_source(

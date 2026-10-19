@@ -83,7 +83,9 @@ def _distinct_cap(items: list | None, n: int) -> list[str]:
 @server.tool(annotations=READ_ONLY)
 def datasets() -> dict[str, Any]:
     """Loaded datasets, their versions, SHA-256 hashes and licenses, object counts, and build warnings
-    (for example cross-framework links that point at objects revoked in the loaded ATT&CK version)."""
+    (for example cross-framework links that point at objects revoked in the loaded ATT&CK version).
+    degraded is true when the database was built with --allow-partial and a required source is missing;
+    missing_sources lists every source that is not loaded, required or optional. Say so when it matters."""
     return _call("datasets")
 
 

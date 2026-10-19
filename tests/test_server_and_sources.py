@@ -71,6 +71,26 @@ def test_tool_errors_are_returned_not_raised(server, monkeypatch, tmp_path):
     assert "error" in _call(server, "version_diff", {})
 
 
+def test_datasets_tool_shows_a_degraded_database(monkeypatch, tmp_path):
+    from countermap import server as srv
+    from countermap.ingest import build
+
+    from conftest import write_fixtures
+
+    sources = write_fixtures(tmp_path / "src")
+    next(s for s in sources if s.key == "d3fend-ontology").url = str(tmp_path / "unreachable.ttl")
+    db = tmp_path / "partial.db"
+    build(db, sources, tmp_path / "cache", allow_partial=True, log=lambda m: None)
+    monkeypatch.setenv("COUNTERMAP_DB", str(db))
+    srv._state.clear()
+    out = _call(srv.server, "datasets", {})
+    assert out["degraded"] is True
+    assert {m["key"] for m in out["missing_sources"]} == {"d3fend-ontology", "d3fend-mappings"}
+    tools = {t.name: t.description for t in _call(srv.server, None, None).tools}
+    assert "degraded" in tools["datasets"]
+    srv._state.clear()
+
+
 def test_missing_database_is_an_error_result(monkeypatch, tmp_path):
     monkeypatch.setenv("COUNTERMAP_DB", str(tmp_path / "nope.db"))
     from countermap import server as srv

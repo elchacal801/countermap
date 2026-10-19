@@ -72,8 +72,12 @@ def _resolve(args) -> list:
     return sources
 
 
+D3FEND_MISSING = ('Without D3FEND, countermeasure results say "unavailable" (not empty) until a complete build '
+                  "succeeds.")
+
+
 def cmd_build(args) -> int:
-    from .ingest import BuildError, build
+    from .ingest import BuildError, RequiredSourceError, build
 
     db = Path(args.db or default_db_path())
     try:
@@ -84,10 +88,21 @@ def cmd_build(args) -> int:
     print(f"Building {db}")
     try:
         report = build(db, sources, Path(args.cache or default_cache_dir()), verify_hashes=bool(args.lock),
-                       log=lambda m: print(m, file=sys.stderr))
+                       allow_partial=args.allow_partial, log=lambda m: print(m, file=sys.stderr))
     except BuildError as exc:
         print(f"error: {exc}", file=sys.stderr)
+        if isinstance(exc, RequiredSourceError):
+            print("The existing database, if any, is unchanged. If this network cannot reach the source (a proxy or "
+                  "firewall, for example), point --source at a mirror or a local copy, or rerun with --allow-partial "
+                  "to build without it: the database is then marked degraded and 'countermap info' lists what is "
+                  "missing." + (" " + D3FEND_MISSING if exc.key.startswith("d3fend") else ""), file=sys.stderr)
         return 3
+    if report["degraded"]:
+        required = [m for m in report["missing_sources"] if m["required"]]
+        print("warning: --allow-partial: the database is degraded. Required sources not loaded: "
+              + ", ".join(f"{m['key']} ({m['status']})" for m in required) + "."
+              + (" " + D3FEND_MISSING if any(m["key"].startswith("d3fend") for m in required) else ""),
+              file=sys.stderr)
     for s in report["sources"]:
         print(f"  {s['source']:<18} {str(s.get('version')):<10} sha256:{s['sha256'][:12]}")
     if args.write_lock:
@@ -466,6 +481,9 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--only", help="comma-separated source keys: " + ",".join(ALL_SOURCES))
     b.add_argument("--source", action="append", help="override a source: KEY=URL_OR_PATH (repeatable)")
     b.add_argument("--cache", help="download cache directory")
+    b.add_argument("--allow-partial", action="store_true",
+                   help="build even if required sources cannot be fetched or ingested; the database is marked "
+                        "degraded and 'countermap info' lists the missing sources")
     b.set_defaults(func=cmd_build)
 
     lk = sub.add_parser("lock", help="resolve the latest upstream versions and write a lock file")

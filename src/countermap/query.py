@@ -291,8 +291,15 @@ class Countermap:
             f"{r['source']}:{r['rel']}": r["n"]
             for r in self.conn.execute("SELECT source, rel, COUNT(*) AS n FROM edges GROUP BY source, rel")
         }
+        missing = self.meta("missing_sources")
+        if missing is None:  # built before 0.2.1, where d3fend-mappings was the only optional source
+            missing = [{"key": s["key"], "status": s["status"], "required": s["key"] != "d3fend-mappings",
+                        "note": s["note"]} for s in sources if s["status"] != "loaded"]
+        degraded = self.meta("degraded")
         return {
             "built_at": self.meta("built_at"),
+            "degraded": any(m["required"] for m in missing) if degraded is None else bool(degraded),
+            "missing_sources": missing,
             "sources": sources,
             "active_object_counts": counts,
             "edge_counts": edge_counts,
