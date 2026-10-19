@@ -48,6 +48,8 @@ A build takes a few seconds after download. Each rebuild keeps the previous snap
 
 A lock file pins each upstream release by URL and SHA-256. The repository's [`sources.lock.json`](https://github.com/elchacal801/countermap/blob/main/sources.lock.json) pins the releases the project is currently tested against; download it to build exactly those, or write a lock for the latest releases with `countermap lock -o sources.lock.json`.
 
+A lock pins each source's primary URL, and a build from it never falls back to another location. The D3FEND file in the tagged GitHub release is not byte-identical to the release file d3fend.mitre.org serves, so it could not pass the pinned hash anyway. On a network that blocks an upstream host, build from a mirror or a local copy instead (below).
+
 Sources and where they come from:
 
 | Key | Upstream |
@@ -55,7 +57,7 @@ Sources and where they come from:
 | `attack-enterprise`, `attack-mobile`, `attack-ics` | `mitre-attack/attack-stix-data` (STIX 2.1, resolved through its `index.json`) |
 | `f3` | `center-for-threat-informed-defense/fight-fraud-framework` `public/f3-stix.json` |
 | `atlas` | `mitre-atlas/atlas-data` `dist/manifest.yaml`, newest v6 YAML |
-| `d3fend-ontology` | `d3fend.mitre.org/ontologies/d3fend/<version>/d3fend.ttl` for the release `d3fend.mitre.org/api/version.json` reports, falling back to the tagged release in `d3fend/d3fend-ontology` |
+| `d3fend-ontology` | `d3fend.mitre.org/ontologies/d3fend/<version>/d3fend.ttl` for the release `d3fend.mitre.org/api/version.json` reports, falling back (without a lock) to the tagged release in `d3fend/d3fend-ontology` |
 | `d3fend-mappings` | `d3fend.mitre.org/ontologies/d3fend/<version>/d3fend-full-mappings.json` (optional; countermeasure queries report "unavailable" without it) |
 
 **Mirrors and air-gapped use.** Every source accepts a URL or a local path:
@@ -64,6 +66,8 @@ Sources and where they come from:
 countermap build --source attack-enterprise=/mirror/enterprise-attack-20.0.json --source d3fend-mappings=/mirror/d3fend-full-mappings.json
 # or per source: COUNTERMAP_URL_ATTACK_ENTERPRISE=https://ghe.example.com/raw/... countermap build
 ```
+
+With `--lock`, the `COUNTERMAP_URL_<KEY>` variables do not apply, and `--source` replaces that source's locked URL and hash, so the file it names is not verified. To keep the check, edit the entry's `url` in a copy of the lock (a byte-identical copy keeps the pinned `sha256`), or write a lock for the mirror with `countermap lock --source KEY=PATH_OR_URL`.
 
 `COUNTERMAP_DB` and `COUNTERMAP_CACHE` move the database and download cache.
 

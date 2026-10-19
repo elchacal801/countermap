@@ -111,6 +111,25 @@ def test_lock_round_trip_and_compare(tmp_path):
     assert changes[0]["change"] == "new-version" and changes[0]["latest"] == "1.3"
 
 
+def test_a_lock_pins_the_primary_url_without_fallbacks(tmp_path):
+    # The GitHub tagged-release D3FEND file is not byte-identical to the d3fend.mitre.org release file, so a
+    # lock (which pins one SHA-256 per source) must not fall back to it.
+    from countermap.ingest import BuildError, build
+
+    from conftest import write_fixtures
+
+    sources = write_fixtures(tmp_path / "src")
+    ontology = next(s for s in sources if s.key == "d3fend-ontology")
+    ontology.url = str(tmp_path / "blocked" / "d3fend.ttl")
+    ontology.fallbacks = [str(tmp_path / "src" / "d3fend.ttl")]  # reachable, but not recorded in a lock
+    lock = tmp_path / "sources.lock.json"
+    write_lock(lock, sources)
+    locked = read_lock(lock)
+    assert all(s.fallbacks == [] for s in locked)
+    with pytest.raises(BuildError, match="required source d3fend-ontology could not be fetched"):
+        build(tmp_path / "x.db", locked, tmp_path / "cache", verify_hashes=True, log=lambda m: None)
+
+
 def test_resolve_attack_from_local_index_and_override(tmp_path, monkeypatch):
     index = {"collections": [
         {"name": "Enterprise ATT&CK", "versions": [{"version": "20.0", "url": "https://x/e-20.json"},
