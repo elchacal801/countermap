@@ -67,6 +67,11 @@ def render(spec: Scenario | dict, c: Countermap, formats: list[str] | None = Non
                            f"{(l.path or {}).get('def_rel')} {(l.path or {}).get('def_artifact')}") if l.path else None}
         for l in rs.links
     ]
+    if rs.without_countermeasures is not None:
+        # Why "auto" found nothing for a step: countermeasures' gap_reason. "unavailable" is missing data, not a gap.
+        out["steps_without_countermeasures"] = [
+            {"step": s.id, "technique": s.technique_id, **rs.without_countermeasures[s.id]}
+            for s in rs.steps if s.id in rs.without_countermeasures]
     # The mitigations MITRE links to each step's technique (official ATT&CK and ATLAS relationships).
     mitigations = {s.id: c.mitigations(s.node_id) for s in rs.steps}
     out["step_mitigations"] = [{"step": s.id, "technique": s.technique_id, "mitigations": mitigations[s.id]}
@@ -102,7 +107,9 @@ def render(spec: Scenario | dict, c: Countermap, formats: list[str] | None = Non
                                metadata={s.node_id: [{"name": "mitigation", "value": f"{m['id']} {m['name']}"}
                                                      for m in mitigations[s.id]]
                                          + [{"name": "detection", "value": f"{d['id']} {d['name']}"}
-                                            for d in detections[s.id]] for s in rs.steps})
+                                            for d in detections[s.id]]
+                                         + ([{"name": "d3fend", "value": rs.gap_label(s.id)}]
+                                            if rs.gap_label(s.id) else []) for s in rs.steps})
         out["navigator"] = nav["layers"]
         out["warnings"].extend(nav["warnings"])
     return out

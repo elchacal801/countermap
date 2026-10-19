@@ -111,6 +111,73 @@ def test_auto_countermeasures_without_mappings_warns(c_no_mappings):
     assert any("not loaded" in w for w in out["warnings"]) and not out["countermeasure_links"]
 
 
+GAP_SPEC = {
+    "title": "Steps D3FEND does not cover",
+    "steps": [
+        {"id": "s1", "technique": "T1539"},
+        {"id": "s2", "technique": "T1684", "after": ["s1"]},
+        {"id": "s3", "technique": "T0001", "after": ["s2"]},
+        {"id": "s4", "technique": "F1005.006", "after": ["s3"]},
+    ],
+    "countermeasures": "auto",
+}
+
+
+def test_render_reports_why_steps_have_no_countermeasures(c):
+    out = render(GAP_SPEC, c, timestamp=TS)
+    gaps = out["steps_without_countermeasures"]
+    assert [(g["step"], g["technique"], g["gap_reason"]) for g in gaps] == [
+        ("s2", "T1684", "predates"), ("s3", "T0001", "no_mapping"), ("s4", "F1005.006", "f3_native")]
+    assert any("predates" in n for n in gaps[0]["notes"])
+    # The diagrams carry the reason on the step, so a missing countermeasure never reads as an oversight.
+    nodes = {n["data"]["label"].split()[0]: n["data"] for n in out["cad"]["nodes"] if n["type"] == "attack-node"}
+    assert ["d3fend_countermeasures", "no D3FEND mapping yet: the loaded D3FEND release (9.9.9) predates it"] in \
+        nodes["T1684"]["user_properties"]
+    assert ["d3fend_countermeasures", "no D3FEND mapping for this technique"] in nodes["T0001"]["user_properties"]
+    assert not any(p[0] == "d3fend_countermeasures" for p in nodes["T1539"]["user_properties"])
+    assert not validate_cad(out["cad"])
+    mmd = out["mermaid"]
+    assert "[no D3FEND mapping: F3-native technique]" in mmd and "[no D3FEND mapping for this technique]" in mmd
+    entries = {t["techniqueID"]: t for t in out["navigator"]["enterprise-attack"]["techniques"]}
+    assert {"name": "d3fend", "value": "no D3FEND mapping yet: the loaded D3FEND release (9.9.9) predates it"} in \
+        entries["T1684"]["metadata"]
+    assert not any(m["name"] == "d3fend" for m in entries["T1539"]["metadata"])
+    ics = {t["techniqueID"]: t for t in out["navigator"]["ics-attack"]["techniques"]}
+    assert {"name": "d3fend", "value": "no D3FEND mapping for this technique"} in ics["T0001"]["metadata"]
+    f3 = {t["techniqueID"]: t for t in out["navigator"]["f3-financial"]["techniques"]}
+    assert {"name": "d3fend", "value": "no D3FEND mapping: F3-native technique"} in f3["F1005.006"]["metadata"]
+
+
+def test_render_reports_steps_with_none_in_the_requested_tactics(c):
+    spec = {**GAP_SPEC, "steps": GAP_SPEC["steps"][:1], "d3fend_tactics": ["Detect"]}
+    gaps = render(spec, c, ["mermaid"], timestamp=TS)["steps_without_countermeasures"]
+    assert [(g["step"], g["gap_reason"]) for g in gaps] == [("s1", "none_in_tactic")]
+    assert "2 countermeasures exist" in gaps[0]["notes"][0] and "Detect" in gaps[0]["notes"][0]
+
+
+def test_render_never_calls_unavailable_countermeasures_a_gap(c_no_mappings):
+    out = render(GAP_SPEC, c_no_mappings, timestamp=TS)
+    gaps = out["steps_without_countermeasures"]
+    assert [g["gap_reason"] for g in gaps] == ["unavailable"] * 4
+    assert any("not loaded" in w for w in out["warnings"])
+    label = "D3FEND countermeasures unavailable: the D3FEND data is not loaded"
+    assert out["mermaid"].count(f"[{label}]") == 4 and "no D3FEND mapping" not in out["mermaid"]
+    for node in out["cad"]["nodes"]:
+        assert ["d3fend_countermeasures", label] in node["data"]["user_properties"]
+    assert not validate_cad(out["cad"])
+    entries = out["navigator"]["enterprise-attack"]["techniques"]
+    assert all({"name": "d3fend", "value": label} in t["metadata"] for t in entries if t["techniqueID"] != "T1566")
+
+
+def test_steps_without_countermeasures_only_when_picked_automatically(c):
+    assert "steps_without_countermeasures" not in render({**GAP_SPEC, "countermeasures": "none"}, c, ["mermaid"])
+    explicit = {**GAP_SPEC, "countermeasures": [{"id": "D3-CH", "targets": ["s1"]}]}
+    assert "steps_without_countermeasures" not in render(explicit, c, ["mermaid"])
+    assert render(SPEC, c, ["mermaid"])["steps_without_countermeasures"] == [
+        {"step": "s4", "technique": "F1005.006", "gap_reason": "f3_native",
+         "notes": ["F3-native technique: D3FEND publishes no mappings for F3, and F3 has not published mitigations yet."]}]
+
+
 def test_explicit_unmapped_countermeasure_is_an_analyst_assertion(c):
     spec = {**SPEC, "countermeasures": [{"id": "D3-UA", "targets": ["s2"]}]}
     out = render(spec, c, ["cad"], timestamp=TS)

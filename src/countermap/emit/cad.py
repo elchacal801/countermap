@@ -139,6 +139,8 @@ def render_cad(rs: ResolvedScenario, *, published: str | None = None, calibratio
             props.append(["description", step.description])
         if step.assets:
             props.append(["assets", ", ".join(step.assets)])
+        if rs.gap_label(step.id):
+            props.append(["d3fend_countermeasures", rs.gap_label(step.id)])
         label = f"{step.technique_id} {step.label}"
         add_node(f"step:{step.id}", "attack-node", label, x, y, d3f_class=d3f_class, sequence=str(seq), props=props)
 

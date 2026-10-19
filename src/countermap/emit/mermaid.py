@@ -19,7 +19,8 @@ def render_mermaid(rs: ResolvedScenario, direction: str = "LR") -> str:
     ids = {s.id: f"s{i}" for i, s in enumerate(rs.steps, start=1)}
     for s in rs.steps:
         tactic = f"<br/><i>{_q(', '.join(t['name'] for t in s.tactics))}</i>" if s.tactics else ""
-        lines.append(f'  {ids[s.id]}["<b>{_q(s.technique_id)}</b><br/>{_q(s.label)}{tactic}"]:::step')
+        gap = f"<br/>[{_q(rs.gap_label(s.id))}]" if rs.gap_label(s.id) else ""
+        lines.append(f'  {ids[s.id]}["<b>{_q(s.technique_id)}</b><br/>{_q(s.label)}{tactic}{gap}"]:::step')
     for s in rs.steps:
         for prev in s.after:
             lines.append(f"  {ids[prev]} --> {ids[s.id]}")

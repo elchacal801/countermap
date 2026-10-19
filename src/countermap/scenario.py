@@ -129,7 +129,26 @@ class ResolvedScenario:
     d3fend_properties: dict[str, str] = field(default_factory=dict)
     artifact_iris: dict[str, str] = field(default_factory=dict)
     d3fend_known_ids: set[str] = field(default_factory=set)
+    # Steps that "auto" gave no countermeasure: step id -> {"gap_reason", "notes"}. None unless "auto" ran.
+    without_countermeasures: dict[str, dict[str, Any]] | None = None
 
+    def gap_label(self, step_id: str) -> str | None:
+        """A short phrase for diagrams saying why a step has no countermeasure, or None if it has some."""
+        gap = (self.without_countermeasures or {}).get(step_id)
+        if gap is None:
+            return None
+        if gap["gap_reason"] == "predates":
+            return f"no D3FEND mapping yet: the loaded D3FEND release ({self.versions.get('d3fend-ontology')}) predates it"
+        return GAP_LABELS.get(gap["gap_reason"], f"no D3FEND countermeasure ({gap['gap_reason']})")
+
+
+# How diagrams label a step with no countermeasure, by countermeasures' gap_reason. Unavailable data is not a gap.
+GAP_LABELS = {
+    "unavailable": "D3FEND countermeasures unavailable: the D3FEND data is not loaded",
+    "f3_native": "no D3FEND mapping: F3-native technique",
+    "no_mapping": "no D3FEND mapping for this technique",
+    "none_in_tactic": "no D3FEND countermeasure in the selected tactics",
+}
 
 
 # Order used when picking countermeasures for diagrams: actionable tactics first, Model last.
@@ -225,13 +244,24 @@ def resolve_scenario(spec: Scenario | dict, c: Countermap) -> ResolvedScenario:
 
     tactics = {t.lower() for t in scenario.d3fend_tactics} if scenario.d3fend_tactics else None
     if scenario.countermeasures == "auto":
+        resolved.without_countermeasures = {}
         if c._mapping_status() != "loaded":
             resolved.warnings.append("D3FEND published mappings are not loaded; no countermeasures were added.")
+            for s in steps:
+                info = c.countermeasures(s.node_id, limit=1)
+                resolved.without_countermeasures[s.id] = {"gap_reason": info["gap_reason"], "notes": info["notes"]}
             return resolved
         for s in steps:
-            cms = c.countermeasures(s.node_id, limit=200)["countermeasures"]
+            info = c.countermeasures(s.node_id, limit=200)
+            cms = info["countermeasures"]
             if tactics:
                 cms = [m for m in cms if (m["tactic"] or "").lower() in tactics]
+            if info["gap_reason"]:
+                resolved.without_countermeasures[s.id] = {"gap_reason": info["gap_reason"], "notes": info["notes"]}
+            elif not cms:
+                resolved.without_countermeasures[s.id] = {"gap_reason": "none_in_tactic", "notes": [
+                    f"{info['total']} countermeasures exist for this technique, none in the requested tactics "
+                    f"({', '.join(scenario.d3fend_tactics or [])})."]}
             chosen = _pick_diverse(cms, scenario.max_countermeasures_per_step)
             if len(cms) > len(chosen):
                 resolved.omitted[s.id] = len(cms) - len(chosen)
