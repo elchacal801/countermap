@@ -488,7 +488,7 @@ class Countermap:
 
         cm = self.countermeasures(node_id, limit=limit)
         out["d3fend"] = {
-            k: cm[k] for k in ("status", "total", "official", "derived", "by_tactic", "notes") if k in cm
+            k: cm[k] for k in ("status", "gap_reason", "total", "official", "derived", "by_tactic", "notes") if k in cm
         }
         out["d3fend"]["countermeasures"] = [
             {k: m[k] for k in ("d3fend_id", "name", "tactic", "provenance", "via")} for m in cm["countermeasures"]

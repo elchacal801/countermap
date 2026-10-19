@@ -232,6 +232,14 @@ def test_technique_context_shows_provenance(c):
     assert ctx["d3fend"]["countermeasures"][0]["via"].startswith("sub-technique")
 
 
+def test_technique_context_carries_the_gap_reason(c, c_no_mappings):
+    assert c.technique_context("T1539")["d3fend"]["gap_reason"] is None
+    assert c.technique_context("T1684")["d3fend"]["gap_reason"] == "predates"
+    assert c.technique_context("F1005.006")["d3fend"]["gap_reason"] == "f3_native"
+    unavailable = c_no_mappings.technique_context("T1539")["d3fend"]
+    assert unavailable["gap_reason"] == "unavailable" and unavailable["status"] == "unavailable"
+
+
 def test_coverage_gaps_rejects_non_techniques(c):
     out = c.coverage_gaps(["G0016", "D3-MFA"])
     assert out["summary"]["not_found_or_not_technique"] == ["G0016", "D3-MFA"]
