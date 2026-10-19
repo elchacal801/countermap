@@ -50,10 +50,12 @@ When you answer:
 
 1. **Keep official and derived apart.** Say "D3FEND maps D3-CH to T1539" only for official links. For derived ones, say how they were reached ("derived through revoked T1562.003, which ATT&CK replaced with T1690"). A derived link presented as MITRE's is worse than no link, because readers trust MITRE's mappings more than they should trust an inference.
 2. **Cite IDs and versions.** For example, "T1539 Steal Web Session Cookie (ATT&CK 20.0)" and "D3-CH Credential Hardening (D3FEND 1.6.0)". Call `datasets` if you need the versions.
-3. **Read empty results carefully.**
-   - **No D3FEND mapping** is a coverage gap in D3FEND, not evidence that no defense applies.
-   - **"The loaded D3FEND release predates this technique"** means D3FEND has not caught up yet (ATT&CK v20's new techniques, for example).
-   - **"Unavailable, not empty"** means the mappings are not loaded; rebuild rather than reporting zero.
+3. **Read empty results by their `gap_reason`.** `countermeasures`, the `d3fend` block of `technique_context`, each `coverage_gaps` entry (`d3fend_gap_reason`) and `render_scenario`'s `steps_without_countermeasures` say why there are no countermeasures:
+   - **`unavailable`**: the D3FEND data is not loaded in this database. That is not a gap and not zero. Say the countermeasures could not be checked, and suggest a rebuild (see First use). `coverage_gaps` puts these techniques in `summary.d3fend_unavailable` with null counts, never in `no_official_d3fend`.
+   - **`no_mapping`**: D3FEND knows the technique but maps nothing to it. A coverage gap in D3FEND, not evidence that no defense applies.
+   - **`predates`**: the loaded D3FEND release predates the technique (ATT&CK v20's new techniques, for example), so D3FEND has not caught up yet. `coverage_gaps` lists these in `summary.d3fend_predates`.
+   - **`f3_native`**: an F3 technique with no ATT&CK link. D3FEND publishes no mappings for F3.
+   - **`none_in_tactic`**: countermeasures exist, but none in the tactic you asked for.
 4. **Don't conflate F3 and ATT&CK IDs.** F3 reuses some ATT&CK IDs with fraud-specific definitions, so `f3:T1056` is not identical to `attack:T1056`.
 5. **Pass on warnings.** Results flag links that point at revoked, deprecated or missing objects; surface them rather than smoothing them over.
 6. **Don't date what the data doesn't date.** A result shows that an ID is revoked or deprecated in the loaded release, not which release changed it. Say "revoked in the loaded ATT&CK 20.0 data" rather than "ATT&CK 20.0 revoked it", unless `version_diff` or the user's source shows when it happened.

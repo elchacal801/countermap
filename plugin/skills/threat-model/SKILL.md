@@ -61,7 +61,7 @@ Each step takes these fields:
 ## 4. Render, check gaps and save the files
 
 1. Call `render_scenario` with the spec and `formats: ["mermaid"]`. Set `scope` to `incident`, `campaign`, `threat-actor` or another listed value to match the source.
-   - The result carries the validation, warnings, `countermeasure_links`, `step_mitigations` and `step_detections` you need for the report.
+   - The result carries the validation, warnings, `countermeasure_links`, `steps_without_countermeasures` (with each step's `gap_reason`), `step_mitigations` and `step_detections` you need for the report.
    - Asking only for Mermaid keeps the large CAD and Attack Flow JSON out of the conversation.
    - If it returns an error (an unknown ID, an unknown predecessor or a cycle), fix the spec and render again.
 2. If `"auto"` picked countermeasures that don't fit a step, replace them with an explicit list and render again. Say so in the report.
@@ -95,8 +95,9 @@ Use this structure:
    - These are MITRE's own detection strategies.
    - Mark steps with none. F3 has not published data sources.
    - If you ran `telemetry_coverage`, say which steps are blind to the user's telemetry, which are partial and what each is missing, and which are covered. Say that this classification is Countermap's computation over MITRE's analytics, not MITRE's, and that covered means the logs exist, not that a rule does.
-5. **D3FEND countermeasures:** a table with the D3FEND ID and name, tactic, provenance (official, derived with its `via`, or analyst), the steps it covers, and the artifact path.
-6. **Gaps:** techniques with no mitigation, no detection strategy or no D3FEND mapping, and steps blind to the user's telemetry if you checked it. Distinguish "D3FEND has no mapping" from "the loaded D3FEND release predates this technique".
+5. **D3FEND countermeasures:** a table with the D3FEND ID and name, tactic, provenance (official, derived with its `via`, or analyst), the steps it covers, and the artifact path. For each step in `steps_without_countermeasures`, give its reason instead of leaving a blank.
+6. **Gaps:** techniques with no mitigation, no detection strategy or no D3FEND mapping, and steps blind to the user's telemetry if you checked it. Use each step's `gap_reason` (and `coverage_gaps`' `d3fend_gap_reason`): distinguish "D3FEND has no mapping" (`no_mapping`) from "the loaded D3FEND release predates this technique" (`predates`) and from F3-native techniques (`f3_native`).
+   - `unavailable` (or an ID in `coverage_gaps`' `summary.d3fend_unavailable`) is not a gap: say the D3FEND countermeasures could not be checked because the D3FEND data is not loaded, and suggest rebuilding the database.
 7. **Warnings:** anything `render_scenario` or `coverage_gaps` flagged (revoked IDs, ambiguous names, omitted countermeasures).
 8. **Files:** where each was written and how to open it:
    - CAD: https://d3fend.mitre.org/cad/, then File > Load.

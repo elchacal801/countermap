@@ -30,7 +30,7 @@ INSTRUCTIONS = """Countermap answers questions about MITRE ATT&CK (Enterprise, M
 Rules for agents:
 - Always cite IDs and the dataset version from results; call `datasets` if you need versions.
 - Results label cross-framework links as provenance=official (published by MITRE) or provenance=derived (composed through the path in `via`). Never present derived links as MITRE's.
-- An empty D3FEND result is a coverage gap, not proof that no defense applies.
+- An empty D3FEND result carries `gap_reason`. `unavailable` means the D3FEND data is not loaded: report it as unknown, not as a gap, and suggest a rebuild. Any other reason is a coverage gap, not proof that no defense applies.
 - F3 reuses some ATT&CK IDs with fraud-specific definitions; f3:T1056 is not identical to attack:T1056.
 - telemetry_coverage and rule_coverage classes and rankings are Countermap's computations over MITRE's data; quote their `basis` and never present them as MITRE's.
 - To draw diagrams, write a scenario spec and call `render_scenario`; never hand-write CAD JSON, Attack Flow STIX or Navigator layers."""
@@ -114,7 +114,10 @@ def countermeasures(technique: str, d3fend_tactic: str | None = None, include_de
                     limit: int = 25) -> dict[str, Any]:
     """D3FEND countermeasures for an ATT&CK, ATLAS or F3 technique, with the digital-artifact path that links them.
     Official results come from MITRE's published D3FEND inference; derived results show their `via` path
-    (parent/sub-technique, revoked ID, or an F3/ATLAS link to ATT&CK)."""
+    (parent/sub-technique, revoked ID, or an F3/ATLAS link to ATT&CK). When the list is empty, `gap_reason` says
+    why: unavailable (the D3FEND data is not loaded in this database; not a gap, suggest a rebuild), predates (the
+    loaded D3FEND release predates the technique), no_mapping (D3FEND maps nothing to it), f3_native (an F3
+    technique with no ATT&CK link) or none_in_tactic (countermeasures exist, none in d3fend_tactic)."""
     return _call("countermeasures", technique, tactic=d3fend_tactic, include_derived=include_derived, limit=limit)
 
 
@@ -141,7 +144,10 @@ def compare_actors(actors: list[str], include_software: bool = False) -> dict[st
 @server.tool(annotations=READ_ONLY)
 def coverage_gaps(techniques: list[str]) -> dict[str, Any]:
     """For a list of techniques (for example from an incident or threat model), count mitigations, detection
-    strategies and D3FEND countermeasures, and list which have none."""
+    strategies and D3FEND countermeasures, and list which have none. Each entry's d3fend_gap_reason says why it
+    has no D3FEND countermeasures (as in `countermeasures`). IDs in summary.d3fend_unavailable have null D3FEND
+    counts because the D3FEND data is not loaded: report them as unknown, not as gaps. summary.d3fend_predates
+    lists the techniques the loaded D3FEND release predates (they are also in no_official_d3fend)."""
     return _call("coverage_gaps", list(techniques or []))
 
 
@@ -235,7 +241,9 @@ def render_scenario(spec: dict[str, Any], formats: list[Literal["cad", "attack_f
     """Validate a scenario spec against the loaded data and render it as D3FEND CAD JSON, Attack Flow 2.0 STIX,
     Mermaid and/or Navigator layers. Every ID is checked; revoked IDs are replaced with warnings. The result also
     lists, per step, the ATT&CK or ATLAS mitigations MITRE links to its technique (`step_mitigations`) and its
-    ATT&CK detection strategies with platforms and log sources (`step_detections`).
+    ATT&CK detection strategies with platforms and log sources (`step_detections`). With countermeasures "auto",
+    `steps_without_countermeasures` lists each step that got none, with its `gap_reason` (unavailable means the
+    D3FEND data is not loaded, not a gap).
 
     spec = {"title": str, "description": str, "authors": [str],
             "steps": [{"id": "s1", "technique": "T1566.002", "name"?: str, "description"?: str,

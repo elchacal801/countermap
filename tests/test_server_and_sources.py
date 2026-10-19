@@ -44,6 +44,16 @@ def test_tools_are_listed_and_read_only(server):
     assert all(t.annotations.read_only_hint and not t.annotations.open_world_hint for t in tools)
 
 
+def test_tool_descriptions_tell_agents_to_read_gap_reasons(server):
+    from countermap.server import INSTRUCTIONS
+
+    tools = {t.name: t.description for t in _call(server, None, None).tools}
+    assert "gap_reason" in tools["countermeasures"] and "unavailable" in tools["countermeasures"]
+    assert "d3fend_unavailable" in tools["coverage_gaps"] and "d3fend_gap_reason" in tools["coverage_gaps"]
+    assert "steps_without_countermeasures" in tools["render_scenario"]
+    assert "gap_reason" in INSTRUCTIONS and "unavailable" in INSTRUCTIONS
+
+
 def test_tool_calls(server):
     assert _call(server, "lookup", {"ref": "Cozy Bear"})["ext_id"] == "G0016"
     out = _call(server, "render_scenario", {"spec": {"title": "t", "steps": [{"id": "s1", "technique": "T1539"}]},
