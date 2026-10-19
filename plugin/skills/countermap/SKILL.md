@@ -17,6 +17,13 @@ uvx countermap@0.2.0 build
 
 (or `countermap build` if the user has the CLI installed). It downloads about 150 MB of MITRE data from GitHub and d3fend.mitre.org and takes about a minute. Tell the user that before running it, and ask first. After it finishes, retry the tool call; the server picks up the new database without a restart. Run the same command later to refresh to newer MITRE releases.
 
+If the build stops with "required source ... could not be fetched", the network could not reach that source, often because a proxy or firewall blocks d3fend.mitre.org or raw.githubusercontent.com. Nothing was changed. Explain this to the user and offer two ways forward:
+
+- If they have a copy of the file or an internal mirror, rebuild with `--source KEY=PATH_OR_URL` for that source.
+- Rebuild with `--allow-partial` to go without the sources that cannot be fetched. Say what that costs before running it: without D3FEND there are no countermeasures, and countermeasure results say `unavailable` rather than empty. The database is marked degraded, and `datasets` shows `degraded: true` with the missing sources. Ask first.
+
+When `datasets` shows `degraded: true`, mention the missing sources whenever they affect an answer.
+
 ## Which tool for which question
 
 | The user wants | Tool |
