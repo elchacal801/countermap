@@ -343,6 +343,7 @@ D3FEND_TTL = """@prefix : <http://d3fend.mitre.org/ontologies/d3fend.owl#> .
 :T1539 a owl:Class ; rdfs:label "Steal Web Session Cookie" ; :attack-id "T1539" .
 :T1566.002 a owl:Class ; rdfs:label "Spearphishing Link" ; :attack-id "T1566.002" .
 :T1656 a owl:Class ; rdfs:label "Impersonation" ; :attack-id "T1656" .
+:T0001 a owl:Class ; rdfs:label "Exploit Workstation" ; :attack-id "T0001" .
 """
 
 

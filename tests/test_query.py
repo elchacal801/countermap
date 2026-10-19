@@ -112,6 +112,33 @@ def test_gap_note_distinguishes_unknown_to_d3fend(c):
     assert any("not in the loaded D3FEND ontology" in n for n in out["notes"])
 
 
+@pytest.mark.parametrize("ref,tactic,reason", [
+    ("T1539", None, None),  # countermeasures returned
+    ("T1566", None, None),  # derived ones count too
+    ("T1684", None, "predates"),  # not in the loaded D3FEND ontology
+    ("T0001", None, "no_mapping"),  # in the ontology, but D3FEND maps nothing to it
+    ("F1005.006", None, "f3_native"),
+    ("T1539", "Detect", "none_in_tactic"),
+    ("T1684", "Detect", "predates"),  # nothing in any tactic: the underlying reason
+])
+def test_countermeasures_gap_reason(c, ref, tactic, reason):
+    out = c.countermeasures(ref, tactic=tactic)
+    assert out["gap_reason"] == reason
+    assert (out["total"] == 0) == (reason is not None)
+
+
+def test_f3_native_gap_reason_does_not_depend_on_derivation(c):
+    assert c.countermeasures("F1005.006", include_derived=False)["gap_reason"] == "f3_native"
+
+
+def test_countermeasures_gap_reason_when_mappings_unavailable(c_no_mappings):
+    for ref in ("T1539", "T1684", "F1005.006", "T0001"):
+        out = c_no_mappings.countermeasures(ref)
+        assert out["gap_reason"] == "unavailable" and out["status"] == "unavailable"
+    # The prose notes are unchanged.
+    assert "unavailable, not empty" in c_no_mappings.countermeasures("T1539")["notes"][-1]
+
+
 def test_crosswalk_atlas(c):
     out = c.crosswalk("AML.T0073")
     link = out["links"][0]

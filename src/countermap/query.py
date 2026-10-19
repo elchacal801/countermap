@@ -567,29 +567,44 @@ class Countermap:
                            TACTIC_ORDER_D3FEND.index(r["tactic"]) if r["tactic"] in TACTIC_ORDER_D3FEND else 99,
                            r["name"]),
         )
+        before = len(items)
         if tactic:
             if tactic.lower() not in {t.lower() for t in TACTIC_ORDER_D3FEND}:
                 raise NotFound(f"unknown D3FEND tactic {tactic!r}; choose from {', '.join(TACTIC_ORDER_D3FEND)}")
-            before = len(items)
             items = [i for i in items if (i["tactic"] or "").lower() == tactic.lower()]
             if before and not items:
                 notes.append(f"{before} countermeasures exist for this technique, none in tactic {tactic}.")
         by_tactic: dict[str, int] = defaultdict(int)
         for i in items:
             by_tactic[i["tactic"] or "unknown"] += 1
+        known = set(self.meta("d3fend_known_offensive_ids", []) or [])
+        predates = bool(known) and row["framework"] in ("attack", "atlas") and row["ext_id"] not in known
         if status != "loaded":
             notes.append("D3FEND published mappings are not loaded in this database; countermeasure results are unavailable, not empty.")
         elif not items and not f3_native and not tactic:
             notes.append("No D3FEND mapping for this technique. That is a gap in D3FEND coverage, not evidence that no defense applies.")
-            known = set(self.meta("d3fend_known_offensive_ids", []) or [])
-            if known and row["framework"] in ("attack", "atlas") and row["ext_id"] not in known:
+            if predates:
                 notes.append(
                     f"{row['ext_id']} is not in the loaded D3FEND ontology "
                     f"({self.source_versions().get('d3fend-ontology')}), which predates it. Expect mappings after D3FEND's next release."
                 )
+        # Why the list is empty, as one machine-readable value (None when it is not empty).
+        if status != "loaded" or self._source_status("d3fend-ontology") != "loaded":
+            gap_reason: str | None = "unavailable"
+        elif items:
+            gap_reason = None
+        elif row["framework"] == "f3" and not self._edges(src=node_id, rel="reuses_attack_id"):
+            gap_reason = "f3_native"
+        elif tactic and before:
+            gap_reason = "none_in_tactic"
+        elif predates:
+            gap_reason = "predates"
+        else:
+            gap_reason = "no_mapping"
         return {
             "technique": self.summarize(row),
             "status": status,
+            "gap_reason": gap_reason,
             "total": len(items),
             "official": sum(1 for i in items if i["provenance"] == "official"),
             "derived": sum(1 for i in items if i["provenance"] == "derived"),
@@ -600,7 +615,10 @@ class Countermap:
         }
 
     def _mapping_status(self) -> str:
-        row = self.conn.execute("SELECT status FROM sources WHERE key = 'd3fend-mappings'").fetchone()
+        return self._source_status("d3fend-mappings")
+
+    def _source_status(self, key: str) -> str:
+        row = self.conn.execute("SELECT status FROM sources WHERE key = ?", (key,)).fetchone()
         return row["status"] if row else "not-configured"
 
     def crosswalk(self, ref: str) -> dict[str, Any]:
