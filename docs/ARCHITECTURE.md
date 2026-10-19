@@ -59,7 +59,14 @@ These rules define what Countermap stores and how it labels what it returns. Eve
    - an F3 or ATLAS link to ATT&CK
    - software used by an actor
 3. **Analyst assertions** (countermeasures listed explicitly in a scenario that D3FEND does not map to that step) are labeled `analyst` and drawn as such.
-4. **Empty is not "safe".** A countermeasure query with no results says either "no D3FEND mapping" or "the loaded D3FEND release predates this technique". If the mappings are missing or failed, it says "unavailable, not empty".
+4. **Empty is not "safe".** A countermeasure result with no countermeasures carries a `gap_reason`, next to the prose notes:
+   - `no_mapping`: D3FEND knows the technique but maps nothing to it.
+   - `predates`: the technique is not in the loaded D3FEND ontology, which predates it.
+   - `f3_native`: an F3 technique with no ATT&CK link; D3FEND publishes no mappings for F3.
+   - `none_in_tactic`: countermeasures exist, but none in the requested tactic.
+   - `unavailable`: the D3FEND ontology or mappings are missing or failed. The answer is unknown, not empty, and is never counted as a gap.
+
+   Every result that summarizes absence uses the same reason. `technique_context` carries it in its `d3fend` block. `coverage_gaps` gives each entry its `d3fend_gap_reason` and the official and derived totals; when the D3FEND data is unavailable the counts are null and the technique is listed under `summary.d3fend_unavailable`, not `no_official_d3fend`, and `summary.d3fend_predates` lists the `predates` ones. `render_scenario` lists `steps_without_countermeasures`, and the CAD step properties, Mermaid step labels and Navigator tooltips label each such step with the reason.
 5. **No inference engine.** Countermap does not compute its own D3FEND countermeasure links. If MITRE has not published a mapping, the link does not exist here.
 6. **Computed results say so.** The coverage classes and the gap ranking below are Countermap's arithmetic over MITRE's data, not MITRE's statements. Each result carries a `basis` note that says what was computed and from what.
 
@@ -99,6 +106,8 @@ These rules define what Countermap stores and how it labels what it returns. Eve
 | `d3fend-ontology` | `d3fend.mitre.org/ontologies/d3fend/<version>/d3fend.ttl` (release from `d3fend.mitre.org/api/version.json`, else the CHANGELOG), falling back to the tagged release on GitHub when no lock is used | MIT + D3FEND Terms of Use | Roughly monthly | Versioned file + SHA-256 |
 | `d3fend-mappings` | `d3fend.mitre.org/ontologies/d3fend/<version>/d3fend-full-mappings.json` (until 1.5.0 also at the now-removed `api/ontology/inference/` path) | MIT + D3FEND Terms of Use | With D3FEND releases | Versioned file + SHA-256 |
 
+**Required and optional sources.** Every source except `d3fend-mappings` is required, and the build log labels each missing source as one or the other. A build writes a temporary database and swaps it in only at the end, so when a required source cannot be fetched or ingested, the build fails with a nonzero exit, removes the temporary file and leaves the existing database as it was. `countermap build --allow-partial` records such a source as `unavailable` (or `failed`, when it could not be parsed), drops anything it had stored, finishes the build, prints a warning and sets the database's `degraded` flag; `countermap info` and the `datasets` tool report `degraded` and `missing_sources`. The mappings name D3FEND techniques by ontology class, so without the ontology they are recorded as unavailable too, and countermeasure results say `unavailable`. A SHA-256 mismatch against a lock fails the build either way.
+
 **Lock files** record one URL and one SHA-256 per source, and a build from a lock uses exactly that URL: no fallbacks, and no `COUNTERMAP_URL_<KEY>` overrides. The D3FEND fallback cannot be pinned by the same hash. For D3FEND 1.6.0, d3fend.mitre.org serves the release file (`d3fend.ttl`, 3,862,115 bytes, SHA-256 `4909a5bb...753a`, with the release header and `owl:versionInfo "1.6.0"`), while the GitHub tag holds the ontology's source file (`src/ontology/d3fend-protege.ttl`, 3,405,435 bytes, SHA-256 `a98674c9...7ddc`), serialized differently and without that header. On a network that blocks an upstream host, point `--source KEY=PATH_OR_URL` at a mirror or a local copy. Under a lock, `--source` drops that entry's hash; to keep the check, edit the entry's `url` in a copy of the lock (a byte-identical copy keeps the pinned hash) or write a lock for the mirror with `countermap lock --source KEY=PATH_OR_URL`.
 
 Upstream data is downloaded at build time and never committed. The repository vendors only three things, all listed in `NOTICE`:
@@ -121,7 +130,7 @@ pip install -e ".[dev]"
 pytest -q                                            # offline suite
 countermap build                                    # latest upstream
 countermap build --lock sources.lock.json           # pinned releases
-countermap info                                     # versions, counts, build warnings
+countermap info                                     # versions, counts, build warnings, degraded flag
 countermap serve                                    # MCP over stdio
 ```
 
@@ -129,6 +138,7 @@ Common commands:
 
 | Command | Purpose |
 |---|---|
+| `countermap build --allow-partial` | Build even when required sources cannot be fetched or parsed; the database is marked degraded |
 | `countermap lookup "Cozy Bear"` | Any object by ID, name or alias |
 | `countermap context T1539` | Full technique context |
 | `countermap counter T1539 --tactic Detect` | D3FEND countermeasures with artifact paths |
@@ -154,7 +164,7 @@ Environment variables:
 ### MCP clients
 
 - **VS Code** reads `.vscode/mcp.json`. If VS Code cannot find `countermap`, point the command at the virtualenv executable using `${workspaceFolder}` rather than a machine-specific absolute path.
-- **Claude Code, with the plugin:** `claude plugin install countermap --marketplace elchacal801/countermap`. The repository root holds `.claude-plugin/marketplace.json`, and `plugin/` holds the plugin itself:
+- **Claude Code, with the plugin:** `claude plugin install countermap --marketplace elchacal801/countermap` (Claude Code v2.1.292 or later; the README covers older versions and updating). The repository root holds `.claude-plugin/marketplace.json`, and `plugin/` holds the plugin itself:
   - `.claude-plugin/plugin.json`: the manifest.
   - `.mcp.json`: starts the server from PyPI with `uvx countermap@0.2.0 serve`.
   - `skills/countermap/`: tool guide and provenance rules.
@@ -183,11 +193,11 @@ The workflow declares the `contents: write` and `pull-requests: write` permissio
 1. Rebuild locally.
 2. Run `version_diff`, or `countermap diff` on the `.prev.db` snapshot.
 3. Re-render the examples.
-4. Check `countermap counter` on a few of the new techniques. Expect "predates this technique" notes until D3FEND catches up.
+4. Check `countermap counter` on a few of the new techniques. Expect `gap_reason: predates` until D3FEND catches up.
 
 ### A parser breaks
 
-An upstream format change makes the build fail loudly for required sources and marks optional ones `failed`, recording the reason in `countermap info`. Fix the parser against the new format, add a fixture for it in `tests/conftest.py`, and never loosen a check just to make a build pass.
+An upstream format change makes the build fail loudly for required sources (or, with `--allow-partial`, marks them `failed` and the database degraded) and marks optional ones `failed`, recording the reason in `countermap info`. Fix the parser against the new format, add a fixture for it in `tests/conftest.py`, and never loosen a check just to make a build pass.
 
 ### D3FEND changes the CAD schema
 
@@ -201,7 +211,7 @@ Replace `src/countermap/emit/schemas/d3fend-cad-schema.json` from the schema pag
 4. Rehearse on TestPyPI first, then upload to PyPI with a project-scoped token.
 5. Push the release commit only once the new version is on PyPI, because the plugin starts the server from there.
 
-Between releases, bump the plugin `version` whenever the skills change, because installed users stay on the version they have until it changes.
+Between releases, bump the plugin `version` whenever the skills change, because installed users stay on the version they have until it changes. Auto-update is off by default for third-party marketplaces, so each changelog entry that changes the plugin ends with an "Upgrading" note giving the update commands: `claude plugin marketplace update countermap`, then `claude plugin update countermap@countermap`, and the new version loads in the next session or after `/reload-plugins`.
 
 ## Design decisions
 
