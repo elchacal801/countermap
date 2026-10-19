@@ -8,7 +8,7 @@ Countermap puts the **Fight Fraud Framework (F3)** in one local knowledge graph 
 - **Telemetry and rule coverage.** What your log sources and detection rules cover against MITRE's analytics, with the gaps ranked by how many groups ATT&CK links to them.
 - **Offline and air-gapped builds.** One SQLite file and no network at query time; builds pin each upstream release by SHA-256 and can read every source from a mirror or a local file.
 
-Status: alpha (0.2.0). Built against ATT&CK v20.0, F3 v1.2, ATLAS 2026.09 and D3FEND 1.6.0. See the [architecture document](https://github.com/elchacal801/countermap/blob/main/docs/ARCHITECTURE.md) for the design and the provenance and coverage rules, the [changelog](https://github.com/elchacal801/countermap/blob/main/CHANGELOG.md) for each release, [SECURITY.md](https://github.com/elchacal801/countermap/blob/main/SECURITY.md) to report a vulnerability and [CONTRIBUTING.md](https://github.com/elchacal801/countermap/blob/main/CONTRIBUTING.md) to contribute.
+Status: alpha (0.2.1). Built against ATT&CK v20.0, F3 v1.2, ATLAS 2026.09 and D3FEND 1.6.0. See the [architecture document](https://github.com/elchacal801/countermap/blob/main/docs/ARCHITECTURE.md) for the design and the provenance and coverage rules, the [changelog](https://github.com/elchacal801/countermap/blob/main/CHANGELOG.md) for each release, [SECURITY.md](https://github.com/elchacal801/countermap/blob/main/SECURITY.md) to report a vulnerability and [CONTRIBUTING.md](https://github.com/elchacal801/countermap/blob/main/CONTRIBUTING.md) to contribute.
 
 ## Quick start
 
@@ -143,7 +143,7 @@ claude plugin marketplace add elchacal801/countermap
 claude plugin install countermap@countermap
 ```
 
-The plugin starts the server from PyPI with [uv](https://docs.astral.sh/uv/) (`uvx countermap@0.2.0 serve`), so uv must be on your PATH. On first use Claude offers to build the database (about 150 MB of downloads, once). Without the plugin: `claude mcp add --transport stdio countermap -- countermap serve` (use the full path to the executable if `countermap` is not on PATH, or `-- uvx countermap serve`). Any stdio MCP client works the same way.
+The plugin starts the server from PyPI with [uv](https://docs.astral.sh/uv/) (`uvx countermap@0.2.1 serve`), so uv must be on your PATH. On first use Claude offers to build the database (about 150 MB of downloads, once). Without the plugin: `claude mcp add --transport stdio countermap -- countermap serve` (use the full path to the executable if `countermap` is not on PATH, or `-- uvx countermap serve`). Any stdio MCP client works the same way.
 
 **Updating the plugin.** Auto-update is off by default for third-party marketplaces. To update:
 

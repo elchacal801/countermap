@@ -2,7 +2,7 @@
 name: threat-model
 description: Turns an incident write-up, attack narrative or threat report into a cross-framework threat model using the Countermap MCP tools. Maps each step to MITRE ATT&CK®, ATLAS or F3 techniques, lists the MITRE mitigations and detection strategies for each step, picks D3FEND countermeasures with provenance, reports coverage gaps, and writes D3FEND CAD, Attack Flow 2.0, ATT&CK Navigator and Mermaid files. Use it when the user asks to threat-model something, map an incident, intrusion or report to ATT&CK, build an attack flow or attack graph, find defenses for an attack chain, or produce D3FEND CAD or Navigator output.
 argument-hint: "<incident narrative, report file or URL>"
-allowed-tools: Bash(uvx countermap@0.2.0 render:*), Bash(countermap render:*), PowerShell(uvx countermap@0.2.0 render:*), PowerShell(countermap render:*)
+allowed-tools: Bash(uvx countermap@0.2.1 render:*), Bash(countermap render:*), PowerShell(uvx countermap@0.2.1 render:*), PowerShell(countermap render:*)
 ---
 
 # Threat model with Countermap
@@ -70,7 +70,7 @@ Each step takes these fields:
 4. Choose a short slug from the title and write the spec to `countermap-out/<slug>.scenario.json`.
 5. Let the CLI write every diagram file, rather than copying JSON by hand. Hand copies are slow and a single typo breaks a file.
    ```bash
-   uvx countermap@0.2.0 render countermap-out/<slug>.scenario.json -o countermap-out --name <slug> --scope <scope>
+   uvx countermap@0.2.1 render countermap-out/<slug>.scenario.json -o countermap-out --name <slug> --scope <scope>
    ```
    Run it on its own, exactly as written, not chained with other commands or wrapped in a check for the CLI. The skill pre-approves this one command, and that only applies when it runs by itself. Use `countermap render ...` instead if the CLI is installed. It writes:
    - `<slug>.d3fend-cad.json`

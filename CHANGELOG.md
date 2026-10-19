@@ -2,6 +2,39 @@
 
 Notable changes to Countermap, a local, read-only knowledge graph and MCP server for MITRE ATT&CK®, D3FEND, ATLAS and F3.
 
+## 0.2.1 (2026-10-19)
+
+### Fixed
+
+- `coverage_gaps` no longer reports missing D3FEND data as missing D3FEND coverage. It recounted countermeasures from a list capped at 200 and ignored whether the D3FEND mappings were loaded, so without them every technique landed in `summary.no_official_d3fend` with a count of 0, and the "predates" distinction was lost. It now takes the official and derived totals from `countermeasures`, and when the D3FEND data is not loaded it gives null counts and lists the technique under `summary.d3fend_unavailable` instead.
+- The build labeled the D3FEND ontology as required but completed without it. A required source (every source except `d3fend-mappings`) that cannot be fetched or ingested now fails the build, a Turtle or YAML syntax error included (which used to stop the build with a traceback), and a failed build leaves the existing database in place.
+
+### Added
+
+- `gap_reason`, which says why a countermeasure result is empty: `unavailable` (the D3FEND data is not loaded, which is not a gap), `predates`, `no_mapping`, `f3_native` or `none_in_tactic`, and null when there are countermeasures. `countermeasures` and `technique_context`'s `d3fend` block carry it, and each `coverage_gaps` entry carries it as `d3fend_gap_reason` with the notes as `d3fend_notes`; `summary.d3fend_predates` lists the `predates` techniques. The prose notes are unchanged.
+- `steps_without_countermeasures` in `render_scenario` and `countermap render` results, with each step's `gap_reason`. The CAD step properties, Mermaid step labels and Navigator tooltips carry the same reason.
+- `countermap build --allow-partial`, which builds without the required sources that cannot be fetched or ingested, records them as `unavailable` or `failed`, warns, and marks the database degraded. `countermap info` and the `datasets` tool report `degraded` and `missing_sources`.
+- `SECURITY.md`, which explains how to report a vulnerability privately, and `CONTRIBUTING.md`.
+- `examples/aitm-cookie-to-payment-change.json`, the scenario the README's diagram is rendered from.
+
+### Changed
+
+- A build fails by default when a required source is missing; pass `--allow-partial` to build without it. Without the D3FEND ontology, the mappings are now recorded as unavailable instead of being left out of `countermap info`.
+- The README now leads with what is distinctive, a quick start and a rendered diagram, and covers the Claude Code versions the plugin commands need and how to update the plugin. It also documents that a lock pins each source's primary URL with no fallback, and how to build from a mirror on a network that blocks an upstream host.
+- The MCP server instructions, the tool descriptions and both plugin skills tell agents to read `gap_reason` and `summary.d3fend_unavailable`, and the `countermap` skill says what to do when the first build fails behind a proxy.
+- The plugin starts the server with `uvx countermap@0.2.1`.
+
+### Upgrading
+
+Auto-update is off by default for third-party Claude Code marketplaces. To update the plugin:
+
+```bash
+claude plugin marketplace update countermap
+claude plugin update countermap@countermap
+```
+
+The new version loads in the next session, or after `/reload-plugins`. On the command line, upgrade with `pip install -U countermap` or `pipx upgrade countermap`. Databases built by 0.2.0 keep working without a rebuild.
+
 ## 0.2.0 (2026-10-19)
 
 The first public release.
