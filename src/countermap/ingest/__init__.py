@@ -39,13 +39,42 @@ def build(
     keep_previous: bool = True,
     log=print,
 ) -> dict:
+    """Build the database from ``sources`` into a temporary file, then swap it in.
+
+    A required source that cannot be fetched or ingested raises BuildError; the temporary file is removed and
+    the existing database is left as it was. An optional source that fails is recorded and skipped.
+    """
     db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = db_path.with_name(db_path.name + ".building")
     writer = GraphWriter(tmp_path)
     report: dict = {"started_at": _now(), "countermap_version": __version__, "sources": []}
-    by_key = {s.key: s for s in sources}
+    try:
+        _load(writer, sources, cache_dir, report, verify_hashes=verify_hashes, log=log)
+        report["attack_cross_bundle_links"] = resolve_cross_bundle_references(writer)
+        report["cross_checks"] = _cross_check(writer)
+        report["finished_at"] = _now()
+        writer.commit({
+            "build_report": report,
+            "built_at": report["finished_at"],
+            "d3fend_properties": getattr(writer, "d3fend_properties", {}),
+            "d3fend_known_offensive_ids": getattr(writer, "d3fend_known_offensive_ids", []),
+        })
+    except BaseException:
+        writer.conn.close()
+        tmp_path.unlink(missing_ok=True)
+        raise
 
+    if db_path.exists() and keep_previous:
+        db_path.replace(prev_path(db_path))
+    tmp_path.replace(db_path)
+    return report
+
+
+def _load(writer: GraphWriter, sources: list[ResolvedSource], cache_dir: Path, report: dict, *,
+          verify_hashes: bool, log) -> None:
+    """Fetch, verify and ingest each source in ORDER into ``writer``, recording each one's status."""
+    by_key = {s.key: s for s in sources}
     for key in ORDER:
         src = by_key.get(key)
         if src is None:
@@ -68,7 +97,7 @@ def build(
             )
             writer.warnings.append(f"{key} unavailable: {note}")
             log(f"  ! {key}: unavailable ({'optional' if src.optional else 'required'})")
-            if not src.optional and key != "d3fend-ontology":
+            if not src.optional:
                 raise BuildError(f"required source {key} could not be fetched: {note}")
             continue
 
@@ -89,15 +118,16 @@ def build(
         }.get(key, ingest_attack)
         try:
             result = ingest(writer, path, key)
-        except (ValueError, KeyError, TypeError) as exc:
+        except Exception as exc:  # noqa: BLE001 - any parser error on upstream data (BadSyntax, YAMLError, ...)
+            reason = str(exc) if isinstance(exc, (ValueError, KeyError, TypeError)) else f"{type(exc).__name__}: {exc}"
             if not src.optional:
-                raise BuildError(f"{key}: could not ingest {used_url}: {exc}") from exc
+                raise BuildError(f"{key}: could not ingest {used_url}: {reason}") from exc
             writer.add_source(
                 key, framework=src.framework, title=src.title, version=src.version, url=used_url,
-                sha256=digest, license=src.license, retrieved_at=_now(), status="failed", note=str(exc),
+                sha256=digest, license=src.license, retrieved_at=_now(), status="failed", note=reason,
             )
-            writer.warnings.append(f"{key} failed to ingest and was skipped: {exc}")
-            log(f"  ! {key}: failed to ingest ({exc})")
+            writer.warnings.append(f"{key} failed to ingest and was skipped: {reason}")
+            log(f"  ! {key}: failed to ingest ({reason})")
             continue
         version = result.get("version") or src.version
         writer.add_source(
@@ -107,21 +137,6 @@ def build(
         src.sha256 = digest
         src.version = version
         report["sources"].append({**result, "version": version, "sha256": digest})
-
-    report["attack_cross_bundle_links"] = resolve_cross_bundle_references(writer)
-    report["cross_checks"] = _cross_check(writer)
-    report["finished_at"] = _now()
-    writer.commit({
-        "build_report": report,
-        "built_at": report["finished_at"],
-        "d3fend_properties": getattr(writer, "d3fend_properties", {}),
-        "d3fend_known_offensive_ids": getattr(writer, "d3fend_known_offensive_ids", []),
-    })
-
-    if db_path.exists() and keep_previous:
-        db_path.replace(prev_path(db_path))
-    tmp_path.replace(db_path)
-    return report
 
 
 def _cross_check(writer: GraphWriter) -> dict:

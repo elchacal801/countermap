@@ -2,7 +2,9 @@ import json
 import os
 import sqlite3
 
-from countermap.ingest import build, prev_path
+import pytest
+
+from countermap.ingest import BuildError, build, prev_path
 
 from conftest import (
     UNRESOLVABLE_DC_REF,
@@ -161,6 +163,34 @@ def test_unresolved_optional_source_is_recorded_unavailable(tmp_path):
     assert src["d3fend-mappings"]["status"] == "unavailable"
     assert "no URL could be resolved" in src["d3fend-mappings"]["note"]
     assert "unavailable, not empty" in Countermap(db).countermeasures("T1539")["notes"][-1]
+
+
+@pytest.mark.parametrize("key", ["d3fend-ontology", "f3", "attack-enterprise"])
+def test_unavailable_required_source_fails_the_build_and_keeps_the_previous_database(tmp_path, key):
+    db = tmp_path / "x.db"
+    build(db, write_fixtures(tmp_path / "a"), tmp_path / "cache", log=lambda m: None)
+    before = db.read_bytes()
+    sources = write_fixtures(tmp_path / "b")
+    next(s for s in sources if s.key == key).url = str(tmp_path / "missing" / "source.file")
+    logged = []
+    with pytest.raises(BuildError, match=f"required source {key} could not be fetched"):
+        build(db, sources, tmp_path / "cache", log=logged.append)
+    assert f"  ! {key}: unavailable (required)" in logged
+    assert db.read_bytes() == before and not prev_path(db).exists()
+    assert not db.with_name(db.name + ".building").exists()
+
+
+@pytest.mark.parametrize("key,filename,content", [
+    ("d3fend-ontology", "d3fend.ttl", "this is not turtle @@@"),
+    ("atlas", "atlas.yaml", "techniques: ["),
+])
+def test_unparsable_required_source_fails_the_build(tmp_path, key, filename, content):
+    db = tmp_path / "x.db"
+    sources = write_fixtures(tmp_path / "src")
+    (tmp_path / "src" / filename).write_text(content)
+    with pytest.raises(BuildError, match=f"{key}: could not ingest"):
+        build(db, sources, tmp_path / "cache", log=lambda m: None)
+    assert not db.exists() and not db.with_name(db.name + ".building").exists()
 
 
 def test_read_only_open_survives_odd_paths(tmp_path):
