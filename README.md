@@ -1,22 +1,71 @@
 # Countermap
 
-A local, read-only knowledge graph and MCP server for **MITRE ATT&CK®** (Enterprise, Mobile, ICS), **D3FEND**, **ATLAS** and the **Fight Fraud Framework (F3)**. It answers cross-framework questions with provenance on every link, and renders validated **D3FEND CAD** graphs, **Attack Flow 2.0** bundles, **ATT&CK Navigator** layers and **Mermaid** diagrams from one small scenario spec.
+Countermap puts the **Fight Fraud Framework (F3)** in one local knowledge graph with **MITRE ATT&CK®** (Enterprise, Mobile, ICS), **D3FEND** and **ATLAS**, and serves it read-only to AI agents over MCP and to people from the command line. Every cross-framework link says whether MITRE published it or Countermap derived it, and one small scenario spec renders validated **D3FEND CAD** graphs, **Attack Flow 2.0** bundles, **ATT&CK Navigator** layers and **Mermaid** diagrams.
 
-Status: alpha (0.2.0). Built against ATT&CK v20.0, F3 v1.2, ATLAS 2026.09 and D3FEND 1.6.0. See the [architecture document](https://github.com/elchacal801/countermap/blob/main/docs/ARCHITECTURE.md) for the design, the provenance and coverage rules and how to maintain it, and the [changelog](https://github.com/elchacal801/countermap/blob/main/CHANGELOG.md) for what changed in each release.
+- **Fraud and intrusion in one graph.** F3 techniques sit beside ATT&CK, D3FEND and ATLAS, with F3's reuse of ATT&CK IDs and ATLAS's ATT&CK references kept as MITRE publishes them.
+- **Provenance on every link.** Each link is `official` (published by MITRE), `derived` (with the path it was composed through) or `analyst`, and an empty D3FEND result says why it is empty.
+- **Schema-validated diagrams.** The D3FEND CAD graph and the Attack Flow bundle are checked against their published schemas before they are returned.
+- **Telemetry and rule coverage.** What your log sources and detection rules cover against MITRE's analytics, with the gaps ranked by how many groups ATT&CK links to them.
+- **Offline and air-gapped builds.** One SQLite file and no network at query time; builds pin each upstream release by SHA-256 and can read every source from a mirror or a local file.
+
+Status: alpha (0.2.0). Built against ATT&CK v20.0, F3 v1.2, ATLAS 2026.09 and D3FEND 1.6.0. See the [architecture document](https://github.com/elchacal801/countermap/blob/main/docs/ARCHITECTURE.md) for the design and the provenance and coverage rules, the [changelog](https://github.com/elchacal801/countermap/blob/main/CHANGELOG.md) for each release, [SECURITY.md](https://github.com/elchacal801/countermap/blob/main/SECURITY.md) to report a vulnerability and [CONTRIBUTING.md](https://github.com/elchacal801/countermap/blob/main/CONTRIBUTING.md) to contribute.
+
+## Quick start
+
+```bash
+pipx install countermap                                    # or pip install countermap; Python 3.10 or newer
+countermap build                                           # about 150 MB of MITRE data, downloaded once
+countermap gaps T1566.002 T1539 F1005.006                  # mitigations, detections and D3FEND per technique
+claude plugin install countermap --marketplace elchacal801/countermap   # the MCP server and skills for Claude Code
+```
+
+## Example
+
+```mermaid
+flowchart LR
+  %% AiTM phishing to payment redirection
+  s1["<b>T1566.002</b><br/>Spearphishing Link<br/><i>Initial Access</i>"]:::step
+  s2["<b>T1539</b><br/>Steal Web Session Cookie<br/><i>Credential Access</i>"]:::step
+  s3["<b>F1005.006</b><br/>Account Manipulation: Change of Payment Details<br/><i>Positioning, Defense Impairment</i><br/>[no D3FEND mapping: F3-native technique]"]:::step
+  s1 --> s2
+  s2 --> s3
+  c1{{"D3-FE<br/>File Encryption<br/><i>Harden</i>"}}:::counter
+  a1[/"Email"/]:::artifact
+  a2[/"File"/]:::artifact
+  s1 -- "produces" --> a1
+  c1 -. "encrypts" .-> a2
+  a1 --- a2
+  c2{{"D3-HD<br/>Homoglyph Detection<br/><i>Detect</i>"}}:::counter
+  a3[/"URL"/]:::artifact
+  s1 -- "produces" --> a3
+  c2 -. "analyzes" .-> a3
+  c3{{"D3-CH<br/>Credential Hardening<br/><i>Harden</i>"}}:::counter
+  a4[/"Session Cookie"/]:::artifact
+  a5[/"Credential"/]:::artifact
+  s2 -- "accesses" --> a4
+  c3 -. "hardens" .-> a5
+  a4 --- a5
+  c4{{"D3-CCSA<br/>Credential Compromise Scope Analysis<br/><i>Detect</i>"}}:::counter
+  c4 -. "analyzes" .-> a5
+  classDef step fill:#fde8e8,stroke:#b42318,color:#1f1f1f
+  classDef artifact fill:#eef2f6,stroke:#475467,color:#1f1f1f
+  classDef counter fill:#e6f4ea,stroke:#137333,color:#1f1f1f
+  classDef derived fill:#fff4e5,stroke:#b54708,color:#1f1f1f,stroke-dasharray: 4 3
+```
+
+Rendered by `countermap render examples/aitm-cookie-to-payment-change.json --format mermaid` against the releases in `sources.lock.json`. Each official D3FEND countermeasure (green) connects to its attack step through digital artifacts (gray), as D3FEND's published mappings link them, and the F3 step says why it has none. The same spec also renders the CAD graph, the Attack Flow bundle and the Navigator layers.
 
 ## Why this exists
 
-Plenty of MCP servers expose ATT&CK. Few cover more than one framework, and fewer still record where a cross-framework claim came from. When an agent says "D3-MFA counters this F3 technique", a reader needs to know whether MITRE published that link or whether it was stitched together. Countermap enforces three rules:
+When an agent says "D3-MFA counters this F3 technique", a reader needs to know whether MITRE published that link or whether it was stitched together. Countermap enforces three rules:
 
 1. **Stored links are only what MITRE publishes.** ATT&CK relationships, ATLAS's ATT&CK references, F3's reuse of ATT&CK IDs, and D3FEND's published inference output. Nothing inferred is stored.
 2. **Derived links are labeled and carry their path.** For example `F3 reuses ATT&CK ID attack:T1056 -> sub-technique attack:T1056.001`. Agents are told never to present them as MITRE's.
-3. **Gaps are reported as gaps.** An empty D3FEND result says whether D3FEND maps nothing to a technique or simply predates it (ATT&CK v20's new AI techniques are not in D3FEND 1.6.0 yet).
+3. **Gaps are reported as gaps, with the reason.** An empty D3FEND result carries a `gap_reason`: D3FEND maps nothing to the technique (`no_mapping`), the loaded D3FEND release predates it (`predates`; ATT&CK v20's new AI techniques are not in D3FEND 1.6.0 yet), it is an F3-native technique (`f3_native`), or none is in the requested tactic (`none_in_tactic`). When the D3FEND data is not loaded at all, the reason is `unavailable`, which is never counted as a gap.
 
-It also catches upstream data problems the frameworks do not flag themselves. Against the current releases it reports, for example, that F3 still reuses `T1672` (revoked in ATT&CK, now `T1684.002`) and two sub-technique IDs that ATT&CK does not contain, that ATLAS `AML.T0073` references the revoked `T1656`, and that ATT&CK ICS publishes a deprecated object under an ID Enterprise uses for different malware.
+It also reports upstream data problems the frameworks do not flag themselves. Against the current releases it reports, for example, that F3 still reuses `T1672` (revoked in ATT&CK, now `T1684.002`) and two sub-technique IDs that ATT&CK does not contain, that ATLAS `AML.T0073` references the revoked `T1656`, and that ATT&CK ICS publishes a deprecated object under an ID Enterprise uses for different malware.
 
 ## Install
-
-Python 3.10 or newer.
 
 ```bash
 pip install countermap      # into the current environment
@@ -26,7 +75,7 @@ uvx countermap --help       # run it without installing (requires uv)
 
 With [uv](https://docs.astral.sh/uv/), prefix any command below with `uvx`, for example `uvx countermap build`. Dependencies: `mcp` (2.x), `rdflib`, `jsonschema`, `referencing`, `pydantic`, `PyYAML`.
 
-### From source
+From source:
 
 ```bash
 git clone https://github.com/elchacal801/countermap && cd countermap
@@ -45,6 +94,8 @@ countermap diff ~/.cache/countermap/countermap.prev.db ~/.cache/countermap/count
 ```
 
 A build takes a few seconds after download. Each rebuild keeps the previous snapshot so `version_diff` can show what changed.
+
+A build fails, and leaves the existing database as it was, when a required source (every source except `d3fend-mappings`) cannot be fetched or parsed. `countermap build --allow-partial` builds without it instead: the database is marked degraded, `countermap info` and the `datasets` tool show `degraded: true` and the missing sources, and without D3FEND, countermeasure results say `unavailable` rather than empty.
 
 A lock file pins each upstream release by URL and SHA-256. The repository's [`sources.lock.json`](https://github.com/elchacal801/countermap/blob/main/sources.lock.json) pins the releases the project is currently tested against; download it to build exactly those, or write a lock for the latest releases with `countermap lock -o sources.lock.json`.
 
@@ -85,24 +136,40 @@ Claude Code: install the plugin, which bundles the MCP server with two skills. `
 claude plugin install countermap --marketplace elchacal801/countermap
 ```
 
+This shell form needs Claude Code v2.1.292 or later; inside a session, `/plugin install countermap --marketplace elchacal801/countermap` needs v2.1.275 or later. On older versions, add the marketplace first:
+
+```bash
+claude plugin marketplace add elchacal801/countermap
+claude plugin install countermap@countermap
+```
+
 The plugin starts the server from PyPI with [uv](https://docs.astral.sh/uv/) (`uvx countermap@0.2.0 serve`), so uv must be on your PATH. On first use Claude offers to build the database (about 150 MB of downloads, once). Without the plugin: `claude mcp add --transport stdio countermap -- countermap serve` (use the full path to the executable if `countermap` is not on PATH, or `-- uvx countermap serve`). Any stdio MCP client works the same way.
+
+**Updating the plugin.** Auto-update is off by default for third-party marketplaces. To update:
+
+```bash
+claude plugin marketplace update countermap
+claude plugin update countermap@countermap
+```
+
+The new version loads in the next session, or after `/reload-plugins`. To turn on auto-update, run `/plugin`, open the Marketplaces tab, select countermap and choose Enable auto-update.
 
 | Tool | What it returns |
 |---|---|
-| `datasets` | Loaded versions, SHA-256, licenses, object counts, build warnings |
+| `datasets` | Loaded versions, SHA-256, licenses, object counts, build warnings, and whether the database is degraded |
 | `search` | Full-text search over names, aliases, IDs, descriptions |
 | `lookup` | Any object by ID, name or alias; revoked IDs followed to their replacement. Detection strategies, analytics and data components also show their analytics, log sources, tunables and techniques; campaigns show their first and last seen dates |
 | `technique_context` | Tactics, sub-techniques, users, mitigations, detection strategies with each analytic's description, tunables and log sources, D3FEND, crosswalk |
-| `countermeasures` | D3FEND countermeasures with artifact paths, official or derived |
+| `countermeasures` | D3FEND countermeasures with artifact paths, official or derived, and a `gap_reason` when there are none |
 | `crosswalk` | ATLAS and F3 links to ATT&CK, flagged when the target is revoked, deprecated or missing |
 | `actor_techniques` | Techniques for a group, software or campaign (optionally through its software) |
 | `compare_actors` | Shared and unique techniques, pairwise Jaccard |
-| `coverage_gaps` | Mitigation, detection-strategy and D3FEND counts for a technique list |
+| `coverage_gaps` | Mitigation, detection-strategy and D3FEND counts for a technique list, with the reason for each missing D3FEND mapping |
 | `telemetry_coverage` | What your log sources and data components can detect: each technique of a list, an actor or a platform (in one ATT&CK domain or all three) as covered, partial or blind against MITRE's analytics, with the log sources missing; optional Navigator layer, up to 120 techniques over MCP |
 | `rule_coverage` | What your detection rules cover: given the ATT&CK IDs your rules map to, each in-scope technique as covered, partial or uncovered, with gaps ranked by how many groups ATT&CK links to them, directly or through software they use (the latter derived by Countermap); optional Navigator layer, up to 120 techniques over MCP |
 | `version_diff` | Added, removed, revoked, deprecated, renamed, re-tacticed objects since the last build |
 | `navigator_layer` | Navigator layer 4.5 JSON per domain, including F3's Navigator domain |
-| `render_scenario` | CAD, Attack Flow, Mermaid and Navigator output from a scenario spec, plus the mitigations and detection strategies (with their analytics) MITRE links to each step |
+| `render_scenario` | CAD, Attack Flow, Mermaid and Navigator output from a scenario spec, plus the mitigations and detection strategies (with their analytics) MITRE links to each step, and why a step has no countermeasures |
 
 The same queries work from the shell: `countermap lookup "Cozy Bear"`, `countermap counter T1539`, `countermap gaps T1566.002 T1539 F1005.006`, `countermap info`.
 
@@ -138,14 +205,14 @@ Save it as `scenario.json` and render it:
 countermap render scenario.json -o out/
 ```
 
-Two complete specs, an AiTM phishing to payment fraud case and an agentic prompt injection, are in the repository's [`examples/`](https://github.com/elchacal801/countermap/tree/main/examples) folder.
+This spec is the diagram above. Three complete specs are in the repository's [`examples/`](https://github.com/elchacal801/countermap/tree/main/examples) folder: this one, a longer AiTM phishing to payment fraud case, and an agentic prompt injection.
 
 - **D3FEND CAD**: attack steps, the digital artifacts they act on, and the countermeasures that act on those artifacts, so every countermeasure connects to the attack through an artifact. Validated against the published CAD schema. Open it in CAD with *Load*.
 - **Attack Flow 2.0**: validated against the CTID schema; passes CTID's own `af validate` with no warnings.
 - **Navigator**: one layer per domain; F3 steps go on an F3 layer that uses the same domain and data URL as the layer CTID publishes for F3.
 - **Mermaid**: renders in GitHub, VS Code and most wikis.
 
-`"countermeasures": "auto"` picks official D3FEND countermeasures first, one tactic at a time (Harden, Detect, Isolate, Evict, Restore, Deceive, Model), preferring ones that act on the same artifact as the attack. You can also list countermeasures explicitly; ones D3FEND does not map to that step are drawn and labeled as analyst assertions.
+`"countermeasures": "auto"` picks official D3FEND countermeasures first, one tactic at a time (Harden, Detect, Isolate, Evict, Restore, Deceive, Model), preferring ones that act on the same artifact as the attack. A step that gets none is listed in `steps_without_countermeasures` with its `gap_reason`, and every format labels it with the reason. You can also list countermeasures explicitly; ones D3FEND does not map to that step are drawn and labeled as analyst assertions.
 
 ### CAD calibration
 
@@ -169,6 +236,8 @@ The repository runs that check in a scheduled `upstream-sync` GitHub Actions wor
 - Tool results contain upstream MITRE text. Treat it as data, not instructions.
 - Scenario specs stay local. Nothing is sent anywhere.
 
+To report a vulnerability, see [SECURITY.md](https://github.com/elchacal801/countermap/blob/main/SECURITY.md).
+
 ## Limitations
 
 - D3FEND's published mappings are the only source of countermeasure links. The parser expects MITRE's SPARQL result columns (`off_tech_id`, `def_tech`, `def_artifact_label`, ...). If the columns change or no row can be used, the build marks the mappings `failed`, records a warning, and countermeasure queries report "unavailable" rather than "no coverage".
@@ -177,6 +246,10 @@ The repository runs that check in a scheduled `upstream-sync` GitHub Actions wor
 - D3FEND lags ATT&CK. D3FEND 1.6.0 aligns to ATT&CK 19.0 (per its CHANGELOG) and has no classes for v20's new techniques, so they have no countermeasures yet. It also still maps 22 techniques that ATT&CK had already revoked, while 20 of their replacements have no mappings of their own; Countermap reaches those replacements only through `derived` links that name the revoked ID.
 - F3 has no published mitigations or data sources yet, so F3-native techniques have no countermeasures.
 - CAPEC, CWE and NIST mappings are not included.
+
+## Contributing
+
+See [CONTRIBUTING.md](https://github.com/elchacal801/countermap/blob/main/CONTRIBUTING.md) for the development setup, the tests and the provenance rules every change keeps.
 
 ## License
 

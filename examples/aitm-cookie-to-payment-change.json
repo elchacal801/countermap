@@ -1,0 +1,12 @@
+{
+  "title": "AiTM phishing to payment redirection",
+  "description": "Short example scenario, rendered in the README: an AiTM phishing link, a stolen session cookie, then a change of payment details. Crosses ATT&CK v20 and F3.",
+  "authors": ["Countermap example"],
+  "steps": [
+    {"id": "s1", "technique": "T1566.002", "description": "Link to an AiTM reverse proxy"},
+    {"id": "s2", "technique": "T1539", "after": ["s1"], "assets": ["Victim mailbox"]},
+    {"id": "s3", "technique": "F1005.006", "after": ["s2"]}
+  ],
+  "countermeasures": "auto",
+  "max_countermeasures_per_step": 2
+}
