@@ -8,5 +8,6 @@
     {"id": "s3", "technique": "F1005.006", "after": ["s2"]}
   ],
   "countermeasures": "auto",
-  "max_countermeasures_per_step": 2
+  "max_countermeasures_per_step": 2,
+  "d3fend_tactics": ["Detect"]
 }

@@ -29,31 +29,27 @@ flowchart LR
   s3["<b>F1005.006</b><br/>Account Manipulation: Change of Payment Details<br/><i>Positioning, Defense Impairment</i><br/>[no D3FEND mapping: F3-native technique]"]:::step
   s1 --> s2
   s2 --> s3
-  c1{{"D3-FE<br/>File Encryption<br/><i>Harden</i>"}}:::counter
-  a1[/"Email"/]:::artifact
-  a2[/"File"/]:::artifact
+  c1{{"D3-HD<br/>Homoglyph Detection<br/><i>Detect</i>"}}:::counter
+  a1[/"URL"/]:::artifact
   s1 -- "produces" --> a1
-  c1 -. "encrypts" .-> a2
-  a1 --- a2
-  c2{{"D3-HD<br/>Homoglyph Detection<br/><i>Detect</i>"}}:::counter
-  a3[/"URL"/]:::artifact
-  s1 -- "produces" --> a3
-  c2 -. "analyzes" .-> a3
-  c3{{"D3-CH<br/>Credential Hardening<br/><i>Harden</i>"}}:::counter
-  a4[/"Session Cookie"/]:::artifact
-  a5[/"Credential"/]:::artifact
-  s2 -- "accesses" --> a4
-  c3 -. "hardens" .-> a5
-  a4 --- a5
-  c4{{"D3-CCSA<br/>Credential Compromise Scope Analysis<br/><i>Detect</i>"}}:::counter
-  c4 -. "analyzes" .-> a5
+  c1 -. "analyzes" .-> a1
+  c2{{"D3-SMRA<br/>Sender MTA Reputation Analysis<br/><i>Detect</i>"}}:::counter
+  a2[/"Email"/]:::artifact
+  s1 -- "produces" --> a2
+  c2 -. "analyzes" .-> a2
+  c3{{"D3-CCSA<br/>Credential Compromise Scope Analysis<br/><i>Detect</i>"}}:::counter
+  a3[/"Session Cookie"/]:::artifact
+  a4[/"Credential"/]:::artifact
+  s2 -- "accesses" --> a3
+  c3 -. "analyzes" .-> a4
+  a3 --- a4
   classDef step fill:#fde8e8,stroke:#b42318,color:#1f1f1f
   classDef artifact fill:#eef2f6,stroke:#475467,color:#1f1f1f
   classDef counter fill:#e6f4ea,stroke:#137333,color:#1f1f1f
   classDef derived fill:#fff4e5,stroke:#b54708,color:#1f1f1f,stroke-dasharray: 4 3
 ```
 
-Rendered by `countermap render examples/aitm-cookie-to-payment-change.json --format mermaid` against the releases in `sources.lock.json`. Each official D3FEND countermeasure (green) connects to its attack step through digital artifacts (gray), as D3FEND's published mappings link them, and the F3 step says why it has none. The same spec also renders the CAD graph, the Attack Flow bundle and the Navigator layers.
+Rendered by `countermap render examples/aitm-cookie-to-payment-change.json --format mermaid` against the releases in `sources.lock.json`, with automatic countermeasures limited to D3FEND's Detect tactic (`"d3fend_tactics": ["Detect"]`). Each official D3FEND countermeasure (green) connects to its attack step through digital artifacts (gray), as D3FEND's published mappings link them, and the F3 step says why it has none. The same spec also renders the CAD graph, the Attack Flow bundle and the Navigator layers.
 
 ## Why this exists
 
