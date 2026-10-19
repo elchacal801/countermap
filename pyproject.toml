@@ -1,0 +1,58 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "countermap"
+version = "0.2.0"
+description = "Local-first, read-only cross-framework knowledge graph and MCP server for MITRE ATT&CK®, D3FEND, ATLAS and F3, with D3FEND CAD, Attack Flow, Navigator and Mermaid output."
+readme = "README.md"
+license = "Apache-2.0 AND BSD-3-Clause"
+license-files = ["LICENSE", "NOTICE", "LICENSES/BSD-3-Clause-OASIS.txt"]
+requires-python = ">=3.10"
+authors = [{ name = "Diego Parra" }]
+keywords = ["mitre", "attack", "d3fend", "atlas", "f3", "mcp", "threat-modeling", "cti", "attack-flow"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Security",
+]
+# mcp 2.0.0 itself requires pydantic>=2.12 and jsonschema>=4.20; referencing is imported directly.
+dependencies = [
+  "mcp>=2.0,<3",
+  "jsonschema>=4.20",
+  "pydantic>=2.12",
+  "PyYAML>=6.0",
+  "rdflib>=7.0",
+  "referencing>=0.28.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.urls]
+Homepage = "https://github.com/elchacal801/countermap"
+Repository = "https://github.com/elchacal801/countermap"
+Issues = "https://github.com/elchacal801/countermap/issues"
+Changelog = "https://github.com/elchacal801/countermap/blob/main/CHANGELOG.md"
+
+[project.scripts]
+countermap = "countermap.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/countermap"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: tests that download real upstream data (deselected by default)"]
+addopts = "-m 'not live'"

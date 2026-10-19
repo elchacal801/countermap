@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "countermap": {
+      "command": "uvx",
+      "args": ["countermap@0.2.0", "serve"]
+    }
+  }
+}

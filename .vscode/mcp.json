@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "countermap": {
+      "type": "stdio",
+      "command": "countermap",
+      "args": ["serve"]
+    }
+  }
+}

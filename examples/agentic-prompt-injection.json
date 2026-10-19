@@ -1,0 +1,12 @@
+{
+  "title": "Indirect prompt injection against an internal AI agent",
+  "description": "Example scenario using techniques added in ATT&CK v20 alongside ATLAS. Shows how Countermap reports D3FEND coverage gaps for brand-new techniques instead of inventing countermeasures.",
+  "authors": ["Countermap example"],
+  "steps": [
+    {"id": "s1", "technique": "T1698", "description": "Poisoned document planted where the agent will retrieve it"},
+    {"id": "s2", "technique": "AML.T0051", "after": ["s1"], "description": "Agent follows the injected instructions"},
+    {"id": "s3", "technique": "AML.T0053", "after": ["s2"], "description": "Agent invokes a connected tool with attacker-chosen arguments"},
+    {"id": "s4", "technique": "T1700", "after": ["s3"], "description": "Data leaves through the agent's own output channel"}
+  ],
+  "countermeasures": "auto"
+}

@@ -1,0 +1,13 @@
+{
+  "name": "countermap",
+  "displayName": "Countermap",
+  "version": "0.2.0",
+  "description": "Query MITRE ATT&CK®, D3FEND, ATLAS and F3 with provenance on every cross-framework link, and turn incidents into D3FEND CAD, Attack Flow, Navigator and Mermaid threat models.",
+  "author": {
+    "name": "Diego Parra"
+  },
+  "homepage": "https://github.com/elchacal801/countermap",
+  "repository": "https://github.com/elchacal801/countermap",
+  "license": "Apache-2.0",
+  "keywords": ["mitre-attack", "d3fend", "mitre-atlas", "threat-modeling", "threat-intelligence", "mcp"]
+}

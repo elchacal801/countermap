@@ -1,0 +1,75 @@
+name: upstream-sync
+
+# Nightly: check MITRE upstreams against sources.lock.json. When something changed,
+# build against the new data, run the tests and a live smoke test, then open a PR
+# with the new lock file and a summary of what changed. Nothing merges automatically.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+
+      - name: Compare upstream to lock
+        id: check
+        run: |
+          set +e
+          countermap check-updates --lock sources.lock.json > changes.json
+          code=$?
+          cat changes.json
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" != "0" ] && [ "$code" != "10" ]; then exit "$code"; fi
+
+      - name: Build and test against new upstream data
+        if: steps.check.outputs.code == '10'
+        run: |
+          cp sources.lock.json /tmp/old.lock.json
+          countermap lock -o sources.lock.json
+          countermap --db /tmp/new.db build --lock sources.lock.json
+          countermap --db /tmp/new.db info > /tmp/info.json
+          countermap --db /tmp/new.db lookup T1003.001 > /dev/null
+          pytest -q
+          pytest -q -m live
+          if countermap --db /tmp/old.db build --lock /tmp/old.lock.json; then
+            countermap diff /tmp/old.db /tmp/new.db --limit 25 > upstream-diff.json
+          else
+            echo '{"note": "previous data no longer downloadable; no diff"}' > upstream-diff.json
+          fi
+          python - <<'EOF'
+          import json
+          changes = json.load(open("changes.json"))["changes"]
+          diff = json.load(open("upstream-diff.json"))
+          warnings = json.load(open("/tmp/info.json"))["warnings"]
+          lines = ["## Upstream changes", ""]
+          lines += [f"- `{c['key']}`: {c.get('locked')} -> {c.get('latest')}" for c in changes]
+          if "added" in diff:
+              lines += ["", "## ATT&CK diff (counts)", ""]
+              for k in ("added", "removed", "newly_revoked", "newly_deprecated", "renamed", "tactic_changed"):
+                  lines.append(f"- {k}: {diff[k]['count']}")
+          lines += ["", "## Build warnings", ""] + [f"- {w}" for w in warnings]
+          open("pr-body.md", "w").write("\n".join(lines) + "\n")
+          EOF
+          rm -f changes.json upstream-diff.json
+
+      - name: Open pull request
+        if: steps.check.outputs.code == '10'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: "Update upstream sources lock"
+          branch: upstream-sync
+          title: "Upstream MITRE data changed"
+          body-path: pr-body.md
+          add-paths: sources.lock.json

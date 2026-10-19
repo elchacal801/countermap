@@ -1,0 +1,55 @@
+{
+  "generated_by": "countermap/0.1.0 (+https://github.com/elchacal801/countermap)",
+  "generated_at": "2026-10-15T21:51:32+00:00",
+  "sources": [
+    {
+      "key": "attack-enterprise",
+      "version": "20.0",
+      "url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack-20.0.json",
+      "sha256": "81113ba98afa2928f3dcff62022539f7ce30c315c32e14422f11ff95ce534352",
+      "optional": false
+    },
+    {
+      "key": "attack-mobile",
+      "version": "20.0",
+      "url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/mobile-attack/mobile-attack-20.0.json",
+      "sha256": "824f7d8a37e7893b29e4c6ca6d87b5fbbf3b228ec6384f1a69ee20d523ff59e5",
+      "optional": false
+    },
+    {
+      "key": "attack-ics",
+      "version": "20.0",
+      "url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/ics-attack/ics-attack-20.0.json",
+      "sha256": "c9ca0ce523a1b5e512060a390415e8aefe8f6d32c5f82d7de81264960c1e1183",
+      "optional": false
+    },
+    {
+      "key": "f3",
+      "version": "1.2",
+      "url": "https://raw.githubusercontent.com/center-for-threat-informed-defense/fight-fraud-framework/main/public/f3-stix-v1.2.json",
+      "sha256": "e42360e8a3dba4314d53a4e56a4594b3f6a1802e19d905a4029a95dce811e35a",
+      "optional": false
+    },
+    {
+      "key": "atlas",
+      "version": "2026.09",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/v6/ATLAS-2026.09.yaml",
+      "sha256": "935efa93e28294432d3e2f537eb94991ef8d1f8c58341cd360ea3321ddb66688",
+      "optional": false
+    },
+    {
+      "key": "d3fend-ontology",
+      "version": "1.6.0",
+      "url": "https://d3fend.mitre.org/ontologies/d3fend/1.6.0/d3fend.ttl",
+      "sha256": "4909a5bb66b75d2c359624398848936fb56a6b246bcd5cfcd277977a1277753a",
+      "optional": false
+    },
+    {
+      "key": "d3fend-mappings",
+      "version": "1.6.0",
+      "url": "https://d3fend.mitre.org/ontologies/d3fend/1.6.0/d3fend-full-mappings.json",
+      "sha256": "098e48e2c6de532ac37be6ecdd532da6bb78e85906927c2bcc78b53c45cfe04f",
+      "optional": true
+    }
+  ]
+}

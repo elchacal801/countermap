@@ -1,0 +1,40 @@
+Countermap
+Copyright 2026 Diego Parra
+Licensed under the Apache License, Version 2.0 (see LICENSE). The vendored files
+listed below keep their own licenses.
+
+Countermap is an independent project. It is not affiliated with, sponsored by or
+endorsed by The MITRE Corporation, the MITRE Center for Threat-Informed Defense
+or the National Security Agency.
+
+MITRE ATT&CK® and ATT&CK® are registered trademarks of The MITRE Corporation.
+D3FEND, ATLAS, MITRE Fight Fraud Framework and F3 are trademarks or registered
+trademarks of The MITRE Corporation.
+
+Data processed by this software (downloaded at build time, not redistributed in
+this repository or its packages):
+
+- MITRE ATT&CK (https://attack.mitre.org), (c) The MITRE Corporation. Used under
+  the ATT&CK Terms of Use:
+  https://attack.mitre.org/resources/legal-and-branding/terms-of-use/
+- MITRE D3FEND (https://d3fend.mitre.org), (c) The MITRE Corporation. MIT License;
+  the D3FEND Terms of Use also apply.
+- MITRE ATLAS (https://atlas.mitre.org), (c) The MITRE Corporation. Apache License 2.0.
+- MITRE Fight Fraud Framework (F3) (https://ctid.mitre.org/fraud/), (c) The MITRE
+  Corporation. Apache License 2.0.
+
+Files vendored in this repository and shipped in its packages:
+
+- src/countermap/emit/schemas/attack-flow-schema-2.0.0.json
+  Attack Flow 2.0 JSON schema, MITRE Center for Threat-Informed Defense,
+  https://github.com/center-for-threat-informed-defense/attack-flow, Apache License 2.0.
+- src/countermap/emit/schemas/stix2.1/common/*.json (12 files)
+  OASIS STIX 2.1 JSON schemas, https://github.com/oasis-open/cti-stix2-json-schemas
+  (stix2.1 branch), BSD 3-Clause License, (c) OASIS Open. The license text, with
+  its copyright notice, is in LICENSES/BSD-3-Clause-OASIS.txt.
+- src/countermap/emit/schemas/d3fend-cad-schema.json
+  D3FEND CAD graph schema as published at https://d3fend.mitre.org/cad/docs/schema,
+  (c) The MITRE Corporation. The schema page states no separate license; the D3FEND
+  project publishes its ontology under the MIT License and its site under the D3FEND
+  Terms of Use. Included unmodified (apart from a provenance comment) for offline
+  validation. Remove it if MITRE indicates different terms.

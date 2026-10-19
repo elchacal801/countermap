@@ -1,0 +1,15 @@
+{
+  "title": "AiTM phishing to payment redirection (cyber-to-fraud)",
+  "description": "Example scenario: an adversary-in-the-middle phishing kit steals a session cookie, the actor hides mailbox rules, then changes a payee's payment details. Crosses ATT&CK v20 and F3.",
+  "authors": ["Countermap example"],
+  "steps": [
+    {"id": "s1", "technique": "T1566.002", "description": "Phishing link to an AiTM reverse-proxy login page"},
+    {"id": "s2", "technique": "T1557", "after": ["s1"], "description": "Reverse proxy relays credentials and MFA to the real IdP"},
+    {"id": "s3", "technique": "T1539", "after": ["s2"], "description": "Session cookie captured after MFA", "assets": ["Victim mailbox"]},
+    {"id": "s4", "technique": "T1550.004", "after": ["s3"], "description": "Cookie replayed from actor infrastructure", "assets": ["Victim mailbox"]},
+    {"id": "s5", "technique": "T1564.008", "after": ["s4"], "description": "Inbox rule hides vendor replies", "assets": ["Victim mailbox"]},
+    {"id": "s6", "technique": "F1005.006", "after": ["s5"], "description": "Vendor payment details changed to a mule account"}
+  ],
+  "countermeasures": "auto",
+  "max_countermeasures_per_step": 2
+}
