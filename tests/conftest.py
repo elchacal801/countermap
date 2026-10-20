@@ -4,6 +4,7 @@ F3 STIX, ATLAS v6 YAML, D3FEND TTL, D3FEND SPARQL-JSON mappings). Tests never to
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from pathlib import Path
 
@@ -386,6 +387,21 @@ def write_fixtures(root: Path, *, attack=None, ics=None, with_mappings=True) -> 
     sources.append(ResolvedSource("d3fend-mappings", None,
                                   str(root / ("mappings.json" if with_mappings else "absent.json")), optional=True))
     return sources
+
+
+@pytest.fixture(autouse=True)
+def _isolated_user_state(tmp_path, monkeypatch):
+    """Point every user-state path Countermap reads at this test's tmp_path: the CAD calibration, the database
+    and the download cache (and the XDG bases behind their defaults). Source URL overrides from the caller's
+    environment are dropped, so a test never reads ~/.config/countermap or ~/.cache/countermap."""
+    state = tmp_path / "user-state"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(state / "config"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(state / "cache"))
+    monkeypatch.setenv("COUNTERMAP_CAD_CALIBRATION", str(state / "config" / "countermap" / "cad-calibration.json"))
+    monkeypatch.setenv("COUNTERMAP_CACHE", str(state / "cache" / "countermap"))
+    monkeypatch.setenv("COUNTERMAP_DB", str(state / "cache" / "countermap" / "countermap.db"))
+    for key in [k for k in os.environ if k.startswith("COUNTERMAP_URL_")]:
+        monkeypatch.delenv(key)
 
 
 @pytest.fixture(scope="session")

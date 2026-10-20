@@ -130,6 +130,19 @@ def test_a_lock_pins_the_primary_url_without_fallbacks(tmp_path):
         build(tmp_path / "x.db", locked, tmp_path / "cache", verify_hashes=True, log=lambda m: None)
 
 
+def test_tests_never_read_user_state(tmp_path):
+    # conftest's autouse fixture points every user-state path at the test's tmp_path, so no test reads (or
+    # writes) the real ~/.config/countermap or ~/.cache/countermap.
+    import os
+
+    from countermap.emit.cad import calibration_path
+    from countermap.sources import default_cache_dir, default_db_path
+
+    for path in (calibration_path(), default_db_path(), default_cache_dir()):
+        assert tmp_path in path.parents, path
+    assert not any(k.startswith("COUNTERMAP_URL_") for k in os.environ)
+
+
 def test_resolve_attack_from_local_index_and_override(tmp_path, monkeypatch):
     index = {"collections": [
         {"name": "Enterprise ATT&CK", "versions": [{"version": "20.0", "url": "https://x/e-20.json"},
