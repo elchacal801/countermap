@@ -380,13 +380,19 @@ def cmd_rules_coverage(args) -> int:
     return 0
 
 
+def _write_text(path: Path, text: str) -> None:
+    """Write UTF-8 text with LF line endings on every platform (no CRLF translation on Windows)."""
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+
+
 def _write_layers(path: Path, layers: dict) -> list[Path]:
     """Write Navigator layers: one domain to ``path``, several to ``<stem>.<domain><suffix>`` beside it."""
     written = []
     for domain, layer in layers.items():
         p = path if len(layers) == 1 else path.with_name(f"{path.stem}.{domain}{path.suffix or '.json'}")
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(layer, indent=2, ensure_ascii=False), encoding="utf-8")
+        _write_text(p, json.dumps(layer, indent=2, ensure_ascii=False))
         written.append(p)
     return written
 
@@ -408,19 +414,19 @@ def cmd_render(args) -> int:
     written = []
     if "cad" in out:
         p = outdir / f"{stem}.d3fend-cad.json"
-        p.write_text(json.dumps(out["cad"], indent=2), encoding="utf-8")
+        _write_text(p, json.dumps(out["cad"], indent=2))
         written.append(p)
     if "attack_flow" in out:
         p = outdir / f"{stem}.attack-flow.json"
-        p.write_text(json.dumps(out["attack_flow"], indent=2), encoding="utf-8")
+        _write_text(p, json.dumps(out["attack_flow"], indent=2))
         written.append(p)
     if "mermaid" in out:
         p = outdir / f"{stem}.mmd"
-        p.write_text(out["mermaid"], encoding="utf-8")
+        _write_text(p, out["mermaid"])
         written.append(p)
     for domain, layer in (out.get("navigator") or {}).items():
         p = outdir / f"{stem}.navigator.{domain}.json"
-        p.write_text(json.dumps(layer, indent=2), encoding="utf-8")
+        _write_text(p, json.dumps(layer, indent=2))
         written.append(p)
     for p in written:
         print(p)

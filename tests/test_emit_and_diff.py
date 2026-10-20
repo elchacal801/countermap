@@ -39,6 +39,20 @@ def test_render_all_formats_validate(c):
     assert any("T1656 is revoked" in w for w in out["warnings"])
 
 
+def test_cli_render_writes_lf_line_endings_on_every_platform(built, tmp_path, capsys):
+    from countermap import cli
+
+    spec = tmp_path / "scenario.json"
+    spec.write_text(json.dumps(SPEC), encoding="utf-8")
+    assert cli.main(["--db", str(built), "render", str(spec), "-o", str(tmp_path / "out")]) == 0
+    written = sorted((tmp_path / "out").iterdir())
+    assert {p.name.split(".", 1)[1] for p in written} == {
+        "d3fend-cad.json", "attack-flow.json", "mmd", "navigator.enterprise-attack.json", "navigator.f3-financial.json"}
+    for p in written:
+        data = p.read_bytes()
+        assert b"\r" not in data and b"\n" in data, p.name
+
+
 def test_render_lists_mitre_mitigations_per_step(c):
     out = render(SPEC, c, ["mermaid"], timestamp=TS)
     assert [m["step"] for m in out["step_mitigations"]] == ["s1", "s2", "s3", "s4"]

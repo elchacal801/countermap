@@ -263,6 +263,7 @@ def test_cli_coverage(detect_db, capsys, tmp_path):
     out = json.loads(capsys.readouterr().out)
     assert out["counts"]["covered"] == 1 and out["counts"]["partial"] == 1
     assert "navigator" not in out
+    assert b"\r" not in layer.read_bytes()
     written = json.loads(layer.read_text(encoding="utf-8"))
     assert written["domain"] == "enterprise-attack" and {t["techniqueID"] for t in written["techniques"]} >= {
         "T1059.001", "T1003.001"}
