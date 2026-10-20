@@ -12,7 +12,7 @@ Countermap serves MITRE ATT&CK®, D3FEND, ATLAS and F3 from a local SQLite snaps
 The server reads a database built on the user's machine. If a tool returns an error saying the database is missing, it needs a one-time build:
 
 ```bash
-uvx countermap@0.2.1 build
+uvx countermap@0.2.2 build
 ```
 
 (or `countermap build` if the user has the CLI installed). It downloads about 150 MB of MITRE data from GitHub and d3fend.mitre.org and takes about a minute. Tell the user that before running it, and ask first. After it finishes, retry the tool call; the server picks up the new database without a restart. Run the same command later to refresh to newer MITRE releases.

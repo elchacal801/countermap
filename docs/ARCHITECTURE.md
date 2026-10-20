@@ -166,7 +166,7 @@ Environment variables:
 - **VS Code** reads `.vscode/mcp.json`. If VS Code cannot find `countermap`, point the command at the virtualenv executable using `${workspaceFolder}` rather than a machine-specific absolute path.
 - **Claude Code, with the plugin:** `claude plugin install countermap --marketplace elchacal801/countermap` (Claude Code v2.1.292 or later; the README covers older versions and updating). The repository root holds `.claude-plugin/marketplace.json`, and `plugin/` holds the plugin itself:
   - `.claude-plugin/plugin.json`: the manifest.
-  - `.mcp.json`: starts the server from PyPI with `uvx countermap@0.2.1 serve`.
+  - `.mcp.json`: starts the server from PyPI with `uvx countermap@0.2.2 serve`.
   - `skills/countermap/`: tool guide and provenance rules.
   - `skills/threat-model/`: the `/countermap:threat-model` workflow.
 - **Claude Code, without the plugin:** `claude mcp add --transport stdio countermap -- <path-to-venv>/bin/countermap serve`

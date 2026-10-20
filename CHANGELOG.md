@@ -2,6 +2,23 @@
 
 Notable changes to Countermap, a local, read-only knowledge graph and MCP server for MITRE ATT&CK®, D3FEND, ATLAS and F3.
 
+## 0.2.2 (2026-10-20)
+
+### Fixed
+
+- A lock file that left out a required source (`d3fend-ontology`, for example) built with exit 0 and was not marked degraded, because the build counted only the sources it had tried. A required source the build's sources leave out now counts as missing: the build fails with exit 3 and the same hint as a fetch failure, and the existing database stays in place. With `--allow-partial` the build completes, the database is marked degraded, and `countermap info` and the `datasets` tool list the source as `not-selected`.
+- `countermap render`, and the `--layer` files of `countermap coverage` and `countermap rules-coverage`, wrote CRLF line endings on Windows. They now write LF on every platform.
+
+### Changed
+
+- `countermap build --only KEYS` is an explicit choice of subset: it builds without `--allow-partial`, but when it leaves out a required source the database is marked degraded, the build prints a warning, and `countermap info` lists each left-out required source as `not-selected`.
+- The test suite points the CAD calibration, the database and the download cache at a temporary directory, so it never reads the user's `~/.config/countermap` or `~/.cache/countermap`.
+- The plugin starts the server with `uvx countermap@0.2.2`.
+
+### Upgrading
+
+Update the plugin as for 0.2.1 (below). Databases built by 0.2.0 or 0.2.1 keep working without a rebuild. A database built from a lock file or `--only` selection that left out a required source is not marked degraded until it is rebuilt with 0.2.2.
+
 ## 0.2.1 (2026-10-19)
 
 ### Fixed

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "countermap"
-version = "0.2.1"
+version = "0.2.2"
 description = "Local-first, read-only cross-framework knowledge graph and MCP server for MITRE ATT&CK®, D3FEND, ATLAS and F3, with D3FEND CAD, Attack Flow, Navigator and Mermaid output."
 readme = "README.md"
 license = "Apache-2.0 AND BSD-3-Clause"
