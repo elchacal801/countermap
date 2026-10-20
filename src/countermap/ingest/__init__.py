@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .. import __version__
 from ..db import GraphWriter
-from ..sources import FetchError, ResolvedSource, fetch, sha256_file
+from ..sources import REQUIRED_SOURCES, FetchError, ResolvedSource, fetch, sha256_file
 from .atlas import ingest_atlas
 from .attack import ingest_attack, resolve_cross_bundle_references
 from .d3fend import ingest_d3fend_mappings, ingest_d3fend_ontology
@@ -23,11 +23,13 @@ class BuildError(RuntimeError):
 
 
 class RequiredSourceError(BuildError):
-    """A required source could not be fetched or ingested (``build(allow_partial=True)`` builds without it)."""
+    """A required source could not be fetched or ingested, or the build's sources leave it out
+    (``build(allow_partial=True)`` builds without it). ``keys`` names every such source, ``key`` the first."""
 
-    def __init__(self, key: str, message: str):
+    def __init__(self, key: str, message: str, keys: tuple[str, ...] | None = None):
         super().__init__(message)
         self.key = key
+        self.keys = keys or (key,)
 
 
 PARTIAL = "required; built without it because of --allow-partial"
@@ -49,15 +51,27 @@ def build(
     verify_hashes: bool = False,
     keep_previous: bool = True,
     allow_partial: bool = False,
+    subset: bool = False,
+    absent_note: str = "not in the sources passed to build",
     log=print,
 ) -> dict:
     """Build the database from ``sources`` into a temporary file, then swap it in.
 
-    A required source that cannot be fetched or ingested raises RequiredSourceError; the temporary file is
-    removed and the existing database is left as it was. With ``allow_partial`` the build records it instead and
-    marks the database degraded. An optional source that fails is recorded and skipped. A SHA-256 mismatch
-    against a lock always fails.
+    A required source that cannot be fetched or ingested, or that ``sources`` leaves out (a lock file without
+    it, for example), raises RequiredSourceError; the temporary file is removed and the existing database is
+    left as it was. With ``allow_partial`` the build records it instead and marks the database degraded.
+    ``subset`` says ``sources`` is a subset the user chose (``--only``): the required sources it leaves out are
+    then recorded as "not-selected" and the database is marked degraded, without needing ``allow_partial``.
+    ``absent_note`` says where the source list came from, for the error and the record. An optional source
+    that fails is recorded and skipped. A SHA-256 mismatch against a lock always fails.
     """
+    selected = {s.key for s in sources}
+    absent = tuple(k for k in REQUIRED_SOURCES if k not in selected)
+    if absent and not (allow_partial or subset):
+        log(f"  ! {', '.join(absent)}: {absent_note} (required)")
+        raise RequiredSourceError(
+            absent[0], f"required source{'s' if len(absent) > 1 else ''} {', '.join(absent)} "
+            f"{'are' if len(absent) > 1 else 'is'} {absent_note}", keys=absent)
     db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = db_path.with_name(db_path.name + ".building")
@@ -68,9 +82,12 @@ def build(
         optional = {s.key: s.optional for s in sources}
         missing = [{"key": key, "status": s["status"], "required": not optional[key], "note": s.get("note")}
                    for key, s in writer.sources.items() if s["status"] != "loaded"]
+        missing = [{"key": key, "status": "not-selected", "required": True, "note": absent_note}
+                   for key in absent] + missing
         degraded = any(m["required"] for m in missing)
         if degraded:
-            writer.warnings.append("degraded build (--allow-partial): required sources not loaded: " + ", ".join(
+            how = "--allow-partial" if allow_partial else "--only"
+            writer.warnings.append(f"degraded build ({how}): required sources not loaded: " + ", ".join(
                 f"{m['key']} ({m['status']})" for m in missing if m["required"]))
         report.update(degraded=degraded, missing_sources=missing)
         report["attack_cross_bundle_links"] = resolve_cross_bundle_references(writer)

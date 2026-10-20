@@ -91,7 +91,7 @@ countermap diff ~/.cache/countermap/countermap.prev.db ~/.cache/countermap/count
 
 A build takes a few seconds after download. Each rebuild keeps the previous snapshot so `version_diff` can show what changed.
 
-A build fails, and leaves the existing database as it was, when a required source (every source except `d3fend-mappings`) cannot be fetched or parsed. `countermap build --allow-partial` builds without it instead: the database is marked degraded, `countermap info` and the `datasets` tool show `degraded: true` and the missing sources, and without D3FEND, countermeasure results say `unavailable` rather than empty.
+A build fails, and leaves the existing database as it was, when a required source (every source except `d3fend-mappings`) cannot be fetched or parsed, or the lock file leaves it out. `countermap build --allow-partial` builds without it instead: the database is marked degraded, `countermap info` and the `datasets` tool show `degraded: true` and the missing sources, and without D3FEND, countermeasure results say `unavailable` rather than empty. `countermap build --only KEYS` builds just the sources you name; when that leaves out a required source, the database is marked degraded the same way and lists it as `not-selected`.
 
 A lock file pins each upstream release by URL and SHA-256. The repository's [`sources.lock.json`](https://github.com/elchacal801/countermap/blob/main/sources.lock.json) pins the releases the project is currently tested against; download it to build exactly those, or write a lock for the latest releases with `countermap lock -o sources.lock.json`.
 

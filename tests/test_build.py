@@ -293,6 +293,98 @@ def test_cli_build_fails_on_a_missing_required_source_unless_allow_partial(tmp_p
     assert {m["key"] for m in info["missing_sources"]} == {"d3fend-ontology", "d3fend-mappings"}
 
 
+def _omit(sources, *keys):
+    return [s for s in sources if s.key not in keys]
+
+
+def test_the_fixtures_cover_every_required_source(tmp_path):
+    from countermap.sources import REQUIRED_SOURCES
+
+    assert set(REQUIRED_SOURCES) == {"attack-enterprise", "attack-mobile", "attack-ics", "f3", "atlas", "d3fend-ontology"}
+    assert {s.key for s in write_fixtures(tmp_path / "src")} >= set(REQUIRED_SOURCES)
+
+
+@pytest.mark.parametrize("key", ["d3fend-ontology", "attack-mobile", "f3"])
+def test_a_required_source_left_out_of_the_sources_fails_the_build(tmp_path, key):
+    from countermap.ingest import RequiredSourceError
+
+    db = tmp_path / "x.db"
+    build(db, write_fixtures(tmp_path / "a"), tmp_path / "cache", log=lambda m: None)
+    before = db.read_bytes()
+    with pytest.raises(RequiredSourceError, match=f"required source {key} is not in the sources") as exc:
+        build(db, _omit(write_fixtures(tmp_path / "b"), key), tmp_path / "cache", log=lambda m: None)
+    assert exc.value.keys == (key,)
+    assert db.read_bytes() == before and not prev_path(db).exists()
+    assert not db.with_name(db.name + ".building").exists()
+
+
+def test_allow_partial_builds_without_a_left_out_required_source_and_marks_it_degraded(tmp_path):
+    from countermap.query import Countermap
+
+    db = tmp_path / "x.db"
+    build(db, _omit(write_fixtures(tmp_path / "src"), "d3fend-ontology"), tmp_path / "cache", allow_partial=True,
+          log=lambda m: None)
+    c = Countermap(db)
+    data = c.datasets()
+    assert data["degraded"] is True
+    missing = {m["key"]: m for m in data["missing_sources"]}
+    assert missing["d3fend-ontology"]["status"] == "not-selected" and missing["d3fend-ontology"]["required"] is True
+    assert "not in the sources" in missing["d3fend-ontology"]["note"]
+    assert missing["d3fend-mappings"]["status"] == "unavailable" and missing["d3fend-mappings"]["required"] is False
+    assert any("degraded" in w and "d3fend-ontology (not-selected)" in w for w in data["warnings"])
+    assert c.countermeasures("T1539")["gap_reason"] == "unavailable"
+
+
+def test_cli_build_fails_on_a_lock_that_leaves_out_a_required_source_unless_allow_partial(tmp_path, capsys):
+    from countermap import cli
+    from countermap.sources import write_lock
+
+    db, cache = tmp_path / "x.db", tmp_path / "cache"
+    complete = tmp_path / "complete.lock.json"
+    write_lock(complete, write_fixtures(tmp_path / "src"))
+    assert cli.main(["--db", str(db), "build", "--lock", str(complete), "--cache", str(cache)]) == 0
+    before = db.read_bytes()
+    capsys.readouterr()
+
+    short = tmp_path / "short.lock.json"
+    write_lock(short, _omit(write_fixtures(tmp_path / "src"), "d3fend-ontology", "d3fend-mappings"))
+    assert cli.main(["--db", str(db), "build", "--lock", str(short), "--cache", str(cache)]) == 3
+    err = capsys.readouterr().err
+    assert f"required source d3fend-ontology is not in the lock file {short}" in err
+    assert "--allow-partial" in err and "unavailable" in err  # the same hint as a fetch failure, D3FEND note included
+    assert db.read_bytes() == before
+
+    assert cli.main(["--db", str(db), "build", "--lock", str(short), "--cache", str(cache), "--allow-partial"]) == 0
+    err = capsys.readouterr().err
+    assert "degraded" in err and "d3fend-ontology (not-selected)" in err
+    assert cli.main(["--db", str(db), "info"]) == 0
+    info = json.loads(capsys.readouterr().out)
+    assert info["degraded"] is True
+    assert [(m["key"], m["status"], m["required"]) for m in info["missing_sources"]] == [
+        ("d3fend-ontology", "not-selected", True)]
+
+
+def test_cli_build_only_builds_the_chosen_subset_and_marks_it_degraded(tmp_path, capsys, monkeypatch):
+    # An explicit --only subset is the user's choice: it builds without --allow-partial, but the database is
+    # marked degraded and both the build output and info say which required sources were not selected.
+    from countermap import cli
+
+    fixtures = write_fixtures(tmp_path / "src")
+    monkeypatch.setattr(cli, "resolve_all", lambda attack_version=None, only=None: [
+        s for s in fixtures if only is None or s.key in only])
+    db = tmp_path / "x.db"
+    assert cli.main(["--db", str(db), "build", "--only", "attack-enterprise,f3", "--cache", str(tmp_path / "c")]) == 0
+    err = capsys.readouterr().err
+    assert "--only" in err and "degraded" in err
+    assert "attack-mobile (not-selected)" in err and "d3fend-ontology (not-selected)" in err
+    assert cli.main(["--db", str(db), "info"]) == 0
+    info = json.loads(capsys.readouterr().out)
+    assert info["degraded"] is True
+    assert {(m["key"], m["status"]) for m in info["missing_sources"]} == {
+        (k, "not-selected") for k in ("attack-mobile", "attack-ics", "atlas", "d3fend-ontology")}
+    assert all("not selected with --only" in m["note"] for m in info["missing_sources"])
+
+
 def test_read_only_open_survives_odd_paths(tmp_path):
     from countermap.query import Countermap
 

@@ -54,6 +54,8 @@ SOURCE_META = {
 }
 
 ALL_SOURCES = tuple(SOURCE_META)
+# A complete build needs every source but the D3FEND published mappings; a build without one of these is degraded.
+REQUIRED_SOURCES = tuple(k for k in ALL_SOURCES if k != "d3fend-mappings")
 
 
 def url_override(key: str) -> str | None:

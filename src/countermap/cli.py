@@ -85,21 +85,29 @@ def cmd_build(args) -> int:
     except FetchError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    # A lock that leaves out a required source fails like an unreachable one. An explicit --only subset is the
+    # user's choice: it builds, and the database is marked degraded.
+    subset = bool(getattr(args, "only", None)) and not args.lock
+    absent_note = (f"not in the lock file {args.lock}" if args.lock else
+                   "not selected with --only" if subset else "not in the resolved upstream sources")
     print(f"Building {db}")
     try:
         report = build(db, sources, Path(args.cache or default_cache_dir()), verify_hashes=bool(args.lock),
-                       allow_partial=args.allow_partial, log=lambda m: print(m, file=sys.stderr))
+                       allow_partial=args.allow_partial, subset=subset, absent_note=absent_note,
+                       log=lambda m: print(m, file=sys.stderr))
     except BuildError as exc:
         print(f"error: {exc}", file=sys.stderr)
         if isinstance(exc, RequiredSourceError):
             print("The existing database, if any, is unchanged. If this network cannot reach the source (a proxy or "
                   "firewall, for example), point --source at a mirror or a local copy, or rerun with --allow-partial "
                   "to build without it: the database is then marked degraded and 'countermap info' lists what is "
-                  "missing." + (" " + D3FEND_MISSING if exc.key.startswith("d3fend") else ""), file=sys.stderr)
+                  "missing." + (" " + D3FEND_MISSING if any(k.startswith("d3fend") for k in exc.keys) else ""),
+                  file=sys.stderr)
         return 3
     if report["degraded"]:
         required = [m for m in report["missing_sources"] if m["required"]]
-        print("warning: --allow-partial: the database is degraded. Required sources not loaded: "
+        print(f"warning: {'--allow-partial' if args.allow_partial else '--only'}: the database is degraded. "
+              "Required sources not loaded: "
               + ", ".join(f"{m['key']} ({m['status']})" for m in required) + "."
               + (" " + D3FEND_MISSING if any(m["key"].startswith("d3fend") for m in required) else ""),
               file=sys.stderr)
@@ -484,11 +492,13 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--lock", help="build exactly the sources in this lock file and verify SHA-256")
     b.add_argument("--write-lock", help="write the resolved sources and hashes to this lock file")
     b.add_argument("--attack-version", help="pin ATT&CK to a version, e.g. 19.2")
-    b.add_argument("--only", help="comma-separated source keys: " + ",".join(ALL_SOURCES))
+    b.add_argument("--only", help="build only these comma-separated source keys: " + ",".join(ALL_SOURCES)
+                   + "; leaving out a required source marks the database degraded")
     b.add_argument("--source", action="append", help="override a source: KEY=URL_OR_PATH (repeatable)")
     b.add_argument("--cache", help="download cache directory")
     b.add_argument("--allow-partial", action="store_true",
-                   help="build even if required sources cannot be fetched or ingested; the database is marked "
+                   help="build even if required sources cannot be fetched or ingested, or the lock file leaves them "
+                        "out; the database is marked "
                         "degraded and 'countermap info' lists the missing sources")
     b.set_defaults(func=cmd_build)
 

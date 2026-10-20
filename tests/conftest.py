@@ -369,9 +369,17 @@ def mappings_doc():
     return {"head": {"vars": list(rows[0])}, "results": {"bindings": rows}}
 
 
+def mobile_bundle():
+    # Every required source is part of a complete build; the tests need no Mobile objects, only the bundle.
+    return {"type": "bundle", "id": "bundle--" + str(uuid.uuid5(NS, "mobile")), "objects": [
+        {"type": "x-mitre-collection", "id": sid("x-mitre-collection", "mobile"), "x_mitre_version": "20.0",
+         "name": "Mobile ATT&CK"}]}
+
+
 def write_fixtures(root: Path, *, attack=None, ics=None, with_mappings=True) -> list[ResolvedSource]:
     root.mkdir(parents=True, exist_ok=True)
     (root / "enterprise.json").write_text(json.dumps(attack or attack_bundle()))
+    (root / "mobile.json").write_text(json.dumps(mobile_bundle()))
     (root / "ics.json").write_text(json.dumps(ics or ics_bundle()))
     (root / "f3.json").write_text(json.dumps(f3_bundle()))
     (root / "atlas.yaml").write_text(yaml.safe_dump(atlas_doc()))
@@ -379,6 +387,7 @@ def write_fixtures(root: Path, *, attack=None, ics=None, with_mappings=True) -> 
     (root / "mappings.json").write_text(json.dumps(mappings_doc()))
     sources = [
         ResolvedSource("attack-enterprise", None, str(root / "enterprise.json")),
+        ResolvedSource("attack-mobile", None, str(root / "mobile.json")),
         ResolvedSource("attack-ics", None, str(root / "ics.json")),
         ResolvedSource("f3", None, str(root / "f3.json")),
         ResolvedSource("atlas", None, str(root / "atlas.yaml")),
