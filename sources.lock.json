@@ -1,40 +1,40 @@
 {
-  "generated_by": "countermap/0.1.0 (+https://github.com/elchacal801/countermap)",
-  "generated_at": "2026-10-15T21:51:32+00:00",
+  "generated_by": "countermap/0.2.2 (+https://github.com/elchacal801/countermap)",
+  "generated_at": "2026-11-20T15:23:48+00:00",
   "sources": [
     {
       "key": "attack-enterprise",
-      "version": "20.0",
-      "url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack-20.0.json",
-      "sha256": "81113ba98afa2928f3dcff62022539f7ce30c315c32e14422f11ff95ce534352",
-      "optional": false
-    },
-    {
-      "key": "attack-mobile",
-      "version": "20.0",
-      "url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/mobile-attack/mobile-attack-20.0.json",
-      "sha256": "824f7d8a37e7893b29e4c6ca6d87b5fbbf3b228ec6384f1a69ee20d523ff59e5",
+      "version": "20.1",
+      "url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack-20.1.json",
+      "sha256": "539a843a7b53ed9749740b2123dddae3726b1a4831841c32aca740b011b910b5",
       "optional": false
     },
     {
       "key": "attack-ics",
-      "version": "20.0",
-      "url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/ics-attack/ics-attack-20.0.json",
-      "sha256": "c9ca0ce523a1b5e512060a390415e8aefe8f6d32c5f82d7de81264960c1e1183",
+      "version": "20.1",
+      "url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/ics-attack/ics-attack-20.1.json",
+      "sha256": "3f6448369f9135ade84ff6437479441530d0b262f910dca991879a7146b524ff",
+      "optional": false
+    },
+    {
+      "key": "attack-mobile",
+      "version": "20.1",
+      "url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/mobile-attack/mobile-attack-20.1.json",
+      "sha256": "632e2ec40848394f9873a7a3485fc32f92b861a4e7271f7e88e0cb02f11bb6af",
       "optional": false
     },
     {
       "key": "f3",
-      "version": "1.2",
-      "url": "https://raw.githubusercontent.com/center-for-threat-informed-defense/fight-fraud-framework/main/public/f3-stix-v1.2.json",
-      "sha256": "e42360e8a3dba4314d53a4e56a4594b3f6a1802e19d905a4029a95dce811e35a",
+      "version": "1.3",
+      "url": "https://raw.githubusercontent.com/center-for-threat-informed-defense/fight-fraud-framework/main/public/f3-stix-v1.3.json",
+      "sha256": "88791faed9f89c1ccc80f7006b77c5b28f1ccddc1d35c9a82bb55874ff9d28bf",
       "optional": false
     },
     {
       "key": "atlas",
-      "version": "2026.09",
-      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/v6/ATLAS-2026.09.yaml",
-      "sha256": "935efa93e28294432d3e2f537eb94991ef8d1f8c58341cd360ea3321ddb66688",
+      "version": "2026.10",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/v6/ATLAS-2026.10.yaml",
+      "sha256": "ac41ee9f99a47084ba5fdfc77ae83a28687e12390240fffeb37df7914ffe142d",
       "optional": false
     },
     {
